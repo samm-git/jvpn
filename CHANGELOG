@@ -1,6 +1,7 @@
 *** 0.4.2
  + added code to handle ncsvc disconnect event. Trying to restore resolv.conf
    if its not done by client.
+
 *** 0.4.1
  # Fixed error on reconnect
 
