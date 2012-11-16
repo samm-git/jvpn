@@ -1,0 +1,25 @@
+*** 0.4.2
+ + added code to handle ncsvc disconnect event. Trying to restore resolv.conf
+   if its not done by client.
+*** 0.4.1
+ # Fixed error on reconnect
+
+*** 0.4.0
+ + Migrated from Perl curl binding to LWP library. WWW::Curl seems to be broken
+   on RHEL 6, also LWP semantic is much better documented.
+
+*** 0.3.1
+ # Fixed problems on RHEL5 caused by old perl module
+
+*** 0.3.0
+ + Enabling ncsvc process logging if debug is enabled
+ + Added ip address, gateway and DNS information
+ + Added RX/TX bytes
+ # Fixed CTRL+C handling, added HUP and TERM signals handling
+ + Disabled cursor in the main loop mode
+
+*** 0.2.0
+ + Added command line --conf switch to define configuration file
+
+*** 0.1.0
+ ! Initial release

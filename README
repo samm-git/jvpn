@@ -1,0 +1,45 @@
+jvpn.pl - script to connect to the Juniper firewall with enabled HostChecker.
+
+Features
+ * Emulates web brower to get authentification data
+ * Automatically starts juniper client and passing data to it using TCP
+   connection (it is not possible with command line).
+ * Able to download Linux client from the Juniper VPN server without browser or
+   Java.
+ * Could protect resolv.conf by setting +i attribute for the connection time
+ * Works without Java machine on x32 and x86 hosts
+
+Requirments 
+ * Perl with LWP modules
+ * openssl binary
+ * unzip (only for unpacking)
+
+Usage
+To configure script edit jvpn.ini. If you don`t have installed client - run
+jvpn.pl under sudo and it will download and install it automatically. If you 
+want to run it without sudo - set suid bit on the "ncsvc" binary.
+If you have multiply configurations - use --conf switch to define ini file.
+
+How it works
+ 1) Script connecting to the VPN web portal with provided username and password.
+ 2) Then script handling different authentification scenarious to get DSID value
+ 3) After getting DSID value script getting md5 fingerprint of the SSL 
+    certificate.
+ 4) If ncsvc client is not installed script downloading and unpacking it. 
+ 5) Script starting ncsvc and connecting to daemon using 127.0.0.1:4242 address
+ 6) Script emulates native GUI and passing configuration data to daemon. After
+    this step VPN should work.
+ 7) Script can optionally protect resolv.conf from dhcpd or Network Manager by 
+    setting +i flag on it (disabled by default). 
+ 8) On Ctrl+C script sending "Disconnect" command to the daemon and logging out 
+    on the web site.
+
+Bugs and debugging
+This script is done without any documentation, only using wireshark and
+debugger. It is very likely that it has a bugs or will not work correctly for 
+you. If you need some support - enable debug and send me all information.
+Script debug is written to stdout and daemon log is written to the
+~/.juniper_networks/network_connect/ncsvc.log file.
+
+Author
+Alex Samorukov, samm@os2.kiev.ua
