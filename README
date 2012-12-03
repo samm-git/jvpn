@@ -1,15 +1,15 @@
 jvpn.pl - script to connect to the Juniper firewall with enabled HostChecker.
 
 Features
- * Emulates web brower to get authentification data
+ * Emulates web browser to get authentication data
  * Automatically starts juniper client and passing data to it using TCP
    connection (it is not possible with command line).
  * Able to download Linux client from the Juniper VPN server without browser or
    Java.
  * Could protect resolv.conf by setting +i attribute for the connection time
- * Works without Java machine on x32 and x86 hosts
+ * Works without Java machine on x86 and x86_64 hosts
 
-Requirments 
+Requirements 
  * Perl with LWP modules
  * openssl binary
  * unzip (only for unpacking)
@@ -21,8 +21,8 @@ want to run it without sudo - set suid bit on the "ncsvc" binary.
 If you have multiply configurations - use --conf switch to define ini file.
 
 How it works
- 1) Script connecting to the VPN web portal with provided username and password.
- 2) Then script handling different authentification scenarious to get DSID value
+ 1) Script connecting to the VPN web portal with provided user name and password.
+ 2) Then script handling different authentication scenarios to get DSID value
  3) After getting DSID value script getting md5 fingerprint of the SSL 
     certificate.
  4) If ncsvc client is not installed script downloading and unpacking it. 
