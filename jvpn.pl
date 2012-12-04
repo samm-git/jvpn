@@ -22,6 +22,8 @@ use HTTP::Request::Common;
 use LWP::UserAgent;
 use HTTP::Cookies;
 use File::Copy;
+use File::Temp;
+use POSIX;
 
 my %Config;
 my $config_file='jvpn.ini';
@@ -43,20 +45,30 @@ my $realm=$Config{"realm"};
 my $dnsprotect=$Config{"dnsprotect"};
 my $debug=$Config{"debug"};
 my $verifycert=$Config{"verifycert"};
+my $mode=$Config{"mode"};
 
-# checking if we running under root
-
-my $is_setuid = 0;
-if (-e "./ncsvc") {
-	my $mode = (stat("./ncsvc"))[2];
-	$is_setuid = ($mode & S_ISUID) && ((stat("./ncsvc"))[4]== 0);
-	if(!-x "./ncsvc"){
-		print "./ncsvc is not executable, exiting\n"; 
+# check mode
+if(defined $mode){
+	if($mode !~ /^nc(ui|svc)$/) {
+		print "Configuration error: mode is set incorrectly ($mode), check jvpn.ini\n";
 		exit 1;
 	}
 }
+else { $mode="ncsvc"; }
+# checking if we running under root
+
+my $is_setuid = 0;
+if (-e "./".$mode) {
+	my $fmode = (stat("./".$mode))[2];
+	$is_setuid = ($fmode & S_ISUID) && ((stat("./".$mode))[4]== 0);
+	if(!-x "./".$mode){
+		print "./".$mode." is not executable, exiting\n"; 
+		exit 1;
+	}
+}
+
 if( $> != 0 && !$is_setuid) {
-	print "Please, run this script with su/sudo or set suid attribute on 'ncsvc' \n";
+	print "Please, run this script with su/sudo or set suid attribute on $mode \n";
 	exit 1;
 }
 
@@ -158,31 +170,55 @@ $SIG{'HUP'} = \&INT_handler; # Terminal closed
 # flush after every write
 $| = 1;
 
-# getting MD5 hash of the certificate with openssl s_client
-my $md5hash = <<`SHELL`;
-echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
-openssl x509 -md5 -noout -fingerprint|\
-awk -F\= '{print \$2}'|tr -d \:
-exit 0
-SHELL
+my $md5hash = '';
+my $crtfile = ''; 
+my $fh; # should be global or file is unlinked
 
-chop($md5hash);
-# changing case
-$md5hash =~ tr/A-Z/a-z/;
-
-if($md5hash eq "") {
-	print "Unable to get md5 hash of certificate, exiting";
-	exit 1;
+if($mode eq "ncsvc") {
+	$md5hash = <<`	SHELL`;
+	echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
+	openssl x509 -md5 -noout -fingerprint|\
+	awk -F\= '{print \$2}'|tr -d \:
+	exit 0
+	SHELL
+	chop($md5hash);
+	# changing case
+	$md5hash =~ tr/A-Z/a-z/;
+	if($md5hash eq "") {
+		print "Unable to get md5 hash of certificate, exiting";
+		exit 1;
+	}
+	print "Certificate fingerprint:  [$md5hash]\n";
+}
+elsif($mode eq "ncui") {
+	# we need to fetch certificate
+	$fh = File::Temp->new();
+	$crtfile = $fh->filename;
+	<< `	SHELL`;
+	echo | openssl s_client -connect ${dhost}:${dport} 2>&1 | \
+	sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | \
+	openssl x509 -outform der > $crtfile
+	SHELL
+	printf("Saved certificate to temporary file: $crtfile\n");
 }
 
-print "Certificate fingerprint:  [$md5hash]\n";
-
-if (!-e "./ncsvc") {
+if (!-e "./$mode") {
 	$res = $ua->get ("https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar",':content_file' => './ncLinuxApp.jar');
 	print "Client not exists, downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
 	if ($res->is_success) {
 		print "Done, extracting\n";
-		system("unzip ncLinuxApp.jar ncsvc && chmod +x ./ncsvc");
+		system("unzip ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
+		if($mode eq "ncui") {
+			printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
+			system("gcc -m32 -Wl,-rpath,. -o ncui libncui.so 2>&1 >compile.log && chmod +x ./ncui");
+			if (!-e "./ncui") {
+				printf("Error: Compilation failed, please compile.log\n");
+				exit 1;
+			}
+			else {
+				printf("ncui binary compiled\n");
+			}
+		}
 	}
 	else {
 		print "Download failed, exiting\n";
@@ -190,123 +226,151 @@ if (!-e "./ncsvc") {
 	}
 }
 my $start_t = time;
-system("./ncsvc >/dev/null 2>/dev/null &");
-sleep(3);
 
 my ($socket,$client_socket);
+my $data;
+if($mode eq "ncsvc") {
+	system("./ncsvc >/dev/null 2>/dev/null &");
+	sleep(3);
+	# connecting to ncsvc using TCP
+	$socket = new IO::Socket::INET (
+		PeerHost => '127.0.0.1',
+		PeerPort => '4242',
+		Proto => 'tcp',
+		) or die "ERROR in Socket Creation : $!\n";
 
-# connecting to ncsvc using TCP
-$socket = new IO::Socket::INET (
-	PeerHost => '127.0.0.1',
-	PeerPort => '4242',
-	Proto => 'tcp',
-	) or die "ERROR in Socket Creation : $!\n";
+	print "TCP Connection to ncsvc process established.\n";
 
-print "TCP Connection to ncsvc process established.\n";
+	# sending first packet, got it from tcpdump
+	print "Sending handshake #1 packet... ";
+	$data =   "\0\0\0\0\0\0\0\x64\x01\0\0\0\0\0\0\0\0\0\0\0";
 
-# sending first packet, got it from tcpdump
-print "Sending handshake #1 packet... ";
-my $data =   "\0\0\0\0\0\0\0\x64\x01\0\0\0\0\0\0\0\0\0\0\0";
-
-if($debug) {hdump($data);}
-print $socket "$data";
-$socket->recv($data,2048);
-# XXX - good idea to chek if it valid
-print " [done]\n";
-if($debug) {hdump($data);}
-
-# second packet from tcpdump
-# it contains logging level in the end:
-# 0 LogLevel 0
-# 10 LogLevel 1
-# 20 LogLevel 2
-# 30 LogLevel 3
-# 40 LogLevel 4
-# 50 LogLevel 5
-# We are enabling full log if debug is enabled
-$data= "\0\0\0\0\0\0\0\x7c\x01\0\0\0\x01\0\0\0\0\0\0\x10\0\0\0\0\0\x0a\0\0".
-        "\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
-print "Sending handshake #2 packet... ";
-if($debug) {hdump($data);}
-print $socket "$data";
-$socket->recv($data,2048);
-# XXX - good idea to chek if it valid
-print " [done]\n";
-if($debug) {hdump($data);}
-# Configuration packet
-# XXX - no idea how it works on non default port
-$data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0\xcb\0\xcb\0\0".
-	"\0\xc5\0\x01\0\0\0\x1a".
-	$dhost.
-	"\0\0\x02\0\0\0\x78".
-	"DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure".
-	"\0\0\x0a\0\0\0\x21".
-	$md5hash.
-	"\0";
-
-print "Sending configuration packet...";
-if($debug) {hdump($data);}
-print $socket "$data";
-$socket->recv($data,2048);
-print " [done]\n";
-
-
-if($debug) {hdump($data);}
-
-# checking reply status
-my @result = unpack('C*',$data);
-my $status = sprintf("%02x",$result[7]);
-# 0x6d seems to be "Connect ok" message
-# exit on any other values
-
-if($status ne "6d") {
-	printf("Status=$status\nAuthentication failed, exiting\n");
-	system("./ncsvc -K");
-	exit(1);
-}
-
-if($> == 0 && $dnsprotect) {
-	system("chattr +i /etc/resolv.conf");
-}
-
-# information query
-$data =  "\0\0\0\0\0\0\0\x6a\x01\0\0\0\x01\0\0\0\0\0\0\0";
-if($debug) {hdump($data);}
-print $socket "$data";
-$socket->recv($data,2048);
-if($debug) {hdump($data);}
-
-print "IP: ".inet_ntoa(pack("N",unpack('x[48]N',$data))).
-	" Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
-	"\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
-	"  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
-	"\nConnected to $dhost, press CTRL+C to exit\n";
-# disabling cursor
-print "\e[?25l";
-while ( 1 ) {
-	#stat query
-	$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
-	print "\r                                                              \r";
 	if($debug) {hdump($data);}
 	print $socket "$data";
 	$socket->recv($data,2048);
-	if(!length($data) || !$socket->connected()) {
-	    print "No response from ncsvc, closing connection\n";
-	    INT_handler();
-	}
+	# XXX - good idea to chek if it valid
+	print " [done]\n";
 	if($debug) {hdump($data);}
-	my $now = time - $start_t;
-	# printing RX/TX. This packet also contains encription type,
-	# compression and transport info, but length seems to be variable
-	printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-		int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-		format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
-	sleep(1);
+
+	# second packet from tcpdump
+	# it contains logging level in the end:
+	# 0 LogLevel 0, 10 LogLevel 1, 20 LogLevel 2
+	# 30 LogLevel 3, 40 LogLevel 4, 50 LogLevel 5
+	# We are enabling full log if debug is enabled
+	$data= "\0\0\0\0\0\0\0\x7c\x01\0\0\0\x01\0\0\0\0\0\0\x10\0\0\0\0\0\x0a\0\0".
+		"\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
+	print "Sending handshake #2 packet... ";
+	if($debug) {hdump($data);}
+		print $socket "$data";
+	$socket->recv($data,2048);
+	# XXX - good idea to chek if it valid
+	print " [done]\n";
+	if($debug) {hdump($data);}
+	# Configuration packet
+	# XXX - no idea how it works on non default port
+	$data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0\xcb\0\xcb\0\0".
+		"\0\xc5\0\x01\0\0\0\x1a".
+		$dhost.
+		"\0\0\x02\0\0\0\x78".
+		"DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure".
+		"\0\0\x0a\0\0\0\x21".
+		$md5hash.
+		"\0";
+	print "Sending configuration packet...";
+	if($debug) {hdump($data);}
+	print $socket "$data";
+	$socket->recv($data,2048);
+	print " [done]\n";
+	if($debug) {hdump($data);}
+	# checking reply status
+	my @result = unpack('C*',$data);
+	my $status = sprintf("%02x",$result[7]);
+	# 0x6d seems to be "Connect ok" message
+	# exit on any other values
+	
+	if($status ne "6d") {
+		printf("Status=$status\nAuthentication failed, exiting\n");
+		system("./ncsvc -K");
+		exit(1);
+	}
+	if($> == 0 && $dnsprotect) {
+		system("chattr +i /etc/resolv.conf");
+	}
+
+} # ncsvc
+
+
+if ($mode eq "ncui"){
+	print "Starting ncui, this should bring VPN up.\nPress CTRL+C anytime to terminate connection\n";
+	if($debug) {
+		print("./ncui -p '' -h $dhost  -c 'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure' -f $crtfile\n");
+	}
+	my $childpid;
+	local $SIG{'CHLD'} = 'IGNORE';
+	my $pid = fork();
+	if ($pid == 0) {
+		system("./ncui -p '' -h $dhost  -c 'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure' -f $crtfile");
+		print "\nncui terminated\n";
+		exit 0;
+	}
+	my $exists = kill 0, $pid;
+	if($exists && $> == 0 && $dnsprotect) {
+		# FIXME we should find better method, e.g. using ip tuntap show
+		sleep(15); # time to connect or it will fail
+		system("chattr +i /etc/resolv.conf");
+	}
+	
+	for (;;) {
+	    $exists = kill SIGCHLD, $pid;
+	    $debug && printf("Checking child: exists=$exists, $pid\n");
+	    if(!$exists) {
+		INT_handler();
+		exit 0; # should never be reached
+	    }
+	    sleep 2;
+	}
 }
 
-print "Exiting... Connect failed?\n";
+if($mode eq "ncsvc") {
+	# information query
+	$data =  "\0\0\0\0\0\0\0\x6a\x01\0\0\0\x01\0\0\0\0\0\0\0";
+	if($debug) {hdump($data);}
+	print $socket "$data";
+	$socket->recv($data,2048);
+	if($debug) {hdump($data);}
 
-$socket->close();
+	print "IP: ".inet_ntoa(pack("N",unpack('x[48]N',$data))).
+		" Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
+		"\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
+		"  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
+		"\nConnected to $dhost, press CTRL+C to exit\n";
+	# disabling cursor
+	print "\e[?25l";
+	while ( 1 ) {
+		#stat query
+		$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
+		print "\r                                                              \r";
+		if($debug) {hdump($data);}
+		print $socket "$data";
+		$socket->recv($data,2048);
+		if(!length($data) || !$socket->connected()) {
+		    print "No response from ncsvc, closing connection\n";
+		    INT_handler();
+		}
+		if($debug) {hdump($data);}
+		my $now = time - $start_t;
+		# printing RX/TX. This packet also contains encription type,
+		# compression and transport info, but length seems to be variable
+		printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+			int($now / 3600), int(($now % 3600) / 60), int($now % 60),
+			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
+		sleep(1);
+	}
+
+	print "Exiting... Connect failed?\n";
+	
+	$socket->close();
+} # mode ncsvc loop
 
 # for debugging
 sub hdump {
@@ -342,7 +406,10 @@ sub INT_handler {
 	if($> == 0 && $dnsprotect) {
 		system("chattr -i /etc/resolv.conf");
 	}
-	if($socket->connected()){
+	if ($mode eq "ncui") {
+	    waitpid(-1, 0); # wait for childs to die
+	}
+	if($mode eq "ncsvc" && $socket->connected()){
 	    print "\nSending disconnect packet\n";
     	    # disconnect packet
 	    $data="\0\0\0\0\0\0\0\x67\x01\0\0\0\x01\0\0\0\0\0\0\0";
@@ -358,7 +425,9 @@ sub INT_handler {
 	$ua -> get ("https://$dhost:$dport/dana-na/auth/logout.cgi");
 	print "Killing ncsvc...\n";
 	# it is suid, so best is to use own api
-	system("./ncsvc -K");
+	if ($mode eq "ncsvc") {
+	    system("./ncsvc -K");
+	}
 	# checking if resolv.conf correctly restored
 	if(-f "/etc/jnpr-nc-resolv.conf"){
 	    print "restoring resolv.conf\n";

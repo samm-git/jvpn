@@ -1,3 +1,5 @@
+ + added experimental ncui mode support. TODO: documentation, statistic, tun/tap status control
+
 *** 0.4.2
  + added code to handle ncsvc disconnect event. Trying to restore resolv.conf
    if its not done by client.
