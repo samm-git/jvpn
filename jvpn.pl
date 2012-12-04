@@ -57,12 +57,13 @@ if(defined $mode){
 else { $mode="ncsvc"; }
 # checking if we running under root
 
+# we need ncsvc to be uid for all modes
 my $is_setuid = 0;
-if (-e "./".$mode) {
-	my $fmode = (stat("./".$mode))[2];
-	$is_setuid = ($fmode & S_ISUID) && ((stat("./".$mode))[4]== 0);
-	if(!-x "./".$mode){
-		print "./".$mode." is not executable, exiting\n"; 
+if (-e "./ncsvc") {
+	my $fmode = (stat("./ncsvc"))[2];
+	$is_setuid = ($fmode & S_ISUID) && ((stat("./ncsvc"))[4] == 0);
+	if(!-x "./ncsvc"){
+		print "./ncsvc is not executable, exiting\n"; 
 		exit 1;
 	}
 }
@@ -166,6 +167,7 @@ if ($res->is_success) {
 $SIG{'INT'}  = \&INT_handler; # CTRL+C
 $SIG{'TERM'} = \&INT_handler; # Kill process
 $SIG{'HUP'} = \&INT_handler; # Terminal closed
+$SIG{'PIPE'} = \&INT_handler; # Process died
 
 # flush after every write
 $| = 1;
@@ -309,9 +311,11 @@ if ($mode eq "ncui"){
 	local $SIG{'CHLD'} = 'IGNORE';
 	my $pid = fork();
 	if ($pid == 0) {
-		open(WRITEME, "| ./ncui") or die "Couldn't fork: $!\n";
+		open(WRITEME, "|-", "./ncui") or die "Couldn't fork: $!\n";
 		print WRITEME "./ncui\n-p\n\n-h\n$dhost\n-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n-f\n$crtfile\n";
 		close(WRITEME);
+		printf("ncui terminated\n");
+		exit 0;
 	}
 	my $exists = kill 0, $pid;
 	if($exists && $> == 0 && $dnsprotect) {
@@ -406,9 +410,6 @@ sub INT_handler {
 	if($> == 0 && $dnsprotect) {
 		system("chattr -i /etc/resolv.conf");
 	}
-	if ($mode eq "ncui") {
-	    waitpid(-1, 0); # wait for childs to die
-	}
 	if($mode eq "ncsvc" && $socket->connected()){
 	    print "\nSending disconnect packet\n";
     	    # disconnect packet
@@ -425,9 +426,8 @@ sub INT_handler {
 	$ua -> get ("https://$dhost:$dport/dana-na/auth/logout.cgi");
 	print "Killing ncsvc...\n";
 	# it is suid, so best is to use own api
-	if ($mode eq "ncsvc") {
-	    system("./ncsvc -K");
-	}
+	system("./ncsvc -K");
+
 	# checking if resolv.conf correctly restored
 	if(-f "/etc/jnpr-nc-resolv.conf"){
 	    print "restoring resolv.conf\n";

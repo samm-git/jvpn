@@ -45,7 +45,7 @@ main(int argc, char **argv)
      newargv[newargc] = malloc (sizeof (char *) * (len + 1));
      // remove eol
      if(buffer[len-1]=='\n') buffer[len-1]='\0';
-     snprintf(newargv[newargc], BUF_SIZE, "%s", buffer);
+     snprintf(newargv[newargc], len + 1, "%s", buffer);
      newargc++;
      if(newargc == MAX_ARGS) break;
    }
