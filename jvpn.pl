@@ -309,9 +309,9 @@ if ($mode eq "ncui"){
 	local $SIG{'CHLD'} = 'IGNORE';
 	my $pid = fork();
 	if ($pid == 0) {
-		my @args = ("-p", "", "-h", $dhost, "-c", "'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure'", "-f", $crtfile);
-		exec("./ncui", @args);
-		exit 0; #should never be reached
+		open(WRITEME, "| ./ncui") or die "Couldn't fork: $!\n";
+		print WRITEME "./ncui\n-p\n\n-h\n$dhost\n-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n-f\n$crtfile\n";
+		close(WRITEME);
 	}
 	my $exists = kill 0, $pid;
 	if($exists && $> == 0 && $dnsprotect) {
