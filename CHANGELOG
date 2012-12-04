@@ -1,4 +1,5 @@
- + added experimental ncui mode support. TODO: documentation, statistic, tun/tap status control
+*** 0.5.0
+ + added experimental ncui mode support to jvpn
  + added wrapper.c for the ncui mode
 
 *** 0.4.2

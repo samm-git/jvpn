@@ -25,18 +25,27 @@ How it works
  2) Then script handling different authentication scenarios to get DSID value
  3) After getting DSID value script getting md5 fingerprint of the SSL 
     certificate.
- 4) If ncsvc client is not installed script downloading and unpacking it. 
- 5) Script starting ncsvc and connecting to daemon using 127.0.0.1:4242 address
+ 4) If VPN client is not installed script downloading and unpacking it.
+ 5) Script starting ncsvc and connecting to daemon (using TCP 127.0.0.1:4242
+    socket in ncsvc mode or using "ncui" wrapper in ncui mode).
  6) Script emulates native GUI and passing configuration data to daemon. After
     this step VPN should work.
- 7) Script can optionally protect resolv.conf from dhcpd or Network Manager by 
-    setting +i flag on it (disabled by default). 
- 8) On Ctrl+C script sending "Disconnect" command to the daemon and logging out 
+ 7) Script can optionally protect resolv.conf from dhcpd or Network Manager by
+    setting +i flag on it (disabled by default).
+ 8) On Ctrl+C script sending "Disconnect" command to the daemon and logging out
     on the web site.
+
+Difference between mode=ncui and mode=ncsvc
+By default jvpn work in the ncsvc mode. This could be changed in jvpn.ini using
+"mode" configuration setting. In ncsvc (default) mode jvpn establishing TCP 
+socket to nvsvc daemon and trying to establish connection using it protocol.
+In "ncui" mode jvpn tryin to use main() function libncui.so which later calling
+ncsvc. If default mode does not work for you i am recommending to try "ncui"
+mode. Please note that to use ncui mode you should have gcc installed.
 
 Bugs and debugging
 This script is done without any documentation, only using wireshark and
-debugger. It is very likely that it has a bugs or will not work correctly for 
+debugger. It is very likely that it has a bugs or will not work correctly for
 you. If you need some support - enable debug and send me all information.
 Script debug is written to stdout and daemon log is written to the
 ~/.juniper_networks/network_connect/ncsvc.log file.
