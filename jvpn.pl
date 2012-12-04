@@ -210,7 +210,7 @@ if (!-e "./$mode") {
 		system("unzip ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
 		if($mode eq "ncui") {
 			printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
-			system("gcc -m32 -Wl,-rpath,. -o ncui libncui.so 2>&1 >compile.log && chmod +x ./ncui");
+			system("gcc -m32 -o ncui wrapper.c -ldl  -Wall 2>&1 >compile.log && chmod +x ./ncui");
 			if (!-e "./ncui") {
 				printf("Error: Compilation failed, please compile.log\n");
 				exit 1;
@@ -309,9 +309,9 @@ if ($mode eq "ncui"){
 	local $SIG{'CHLD'} = 'IGNORE';
 	my $pid = fork();
 	if ($pid == 0) {
-		system("./ncui -p '' -h $dhost  -c 'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure' -f $crtfile");
-		print "\nncui terminated\n";
-		exit 0;
+		my @args = ("-p", "", "-h", $dhost, "-c", "'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure'", "-f", $crtfile);
+		exec("./ncui", @args);
+		exit 0; #should never be reached
 	}
 	my $exists = kill 0, $pid;
 	if($exists && $> == 0 && $dnsprotect) {
