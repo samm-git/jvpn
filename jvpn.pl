@@ -304,23 +304,30 @@ if($mode eq "ncsvc") {
 
 if ($mode eq "ncui"){
 	print "Starting ncui, this should bring VPN up.\nPress CTRL+C anytime to terminate connection\n";
-	if($debug) {
-		print("./ncui -p '' -h $dhost  -c 'DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure' -f $crtfile\n");
-	}
 	my $childpid;
 	local $SIG{'CHLD'} = 'IGNORE';
+	my @oldlist = get_tap_interfaces();
 	my $pid = fork();
 	if ($pid == 0) {
+		my $args = "./ncui\n-p\n\n".
+			"-h\n$dhost\n".
+			"-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n".
+			"-f\n$crtfile\n";
+		$debug && print $args;
 		open(WRITEME, "|-", "./ncui") or die "Couldn't fork: $!\n";
-		print WRITEME "./ncui\n-p\n\n-h\n$dhost\n-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n-f\n$crtfile\n";
+		print WRITEME $args;
 		close(WRITEME);
 		printf("ncui terminated\n");
 		exit 0;
 	}
 	my $exists = kill 0, $pid;
+	my $vpnint = get_new_tap_interface(\@oldlist, 15);
+	if ($vpnint eq '') {
+		printf("Error: new interface not found, check nssvc logs\n");
+		INT_Handler();
+	}
+	printf("Connection established, new interface: $vpnint\n");
 	if($exists && $> == 0 && $dnsprotect) {
-		# FIXME we should find better method, e.g. using ip tuntap show
-		sleep(15); # time to connect or it will fail
 		system("chattr +i /etc/resolv.conf");
 	}
 	
@@ -329,7 +336,6 @@ if ($mode eq "ncui"){
 	    $debug && printf("Checking child: exists=$exists, $pid\n");
 	    if(!$exists) {
 		INT_handler();
-		exit 0; # should never be reached
 	    }
 	    sleep 2;
 	}
@@ -526,4 +532,32 @@ sub format_bytes
 	{
 		return sprintf("%.2f B", $size);
 	}
+}
+
+sub get_tap_interfaces
+{
+	my @intlist;
+	open FILE, "/proc/net/dev" or die $!; 
+	while (my $line = <FILE>){
+		if($line =~ /^\s*(tun[0-9]+):/) {
+			push(@intlist, $1);
+		}
+	}
+	return @intlist;
+}
+
+sub get_new_tap_interface
+{
+	my (@newints, $i);
+	my ($oldint, $timeout) = @_;
+	for($i = 0; $i < $timeout; $i++) {
+		@newints = get_tap_interfaces();
+		foreach my $tunint (@newints) {
+			if ( !grep { $_ eq $tunint} @$oldint ) {
+				return $tunint;
+			}
+		}
+		sleep(1);
+	}
+	return '';
 }
