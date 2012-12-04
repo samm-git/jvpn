@@ -49,6 +49,10 @@ main(int argc, char **argv)
      newargc++;
      if(newargc == MAX_ARGS) break;
    }
+   if(!newargc) {
+        fprintf(stderr, "Error: no arguments provided\n");
+        exit(EXIT_FAILURE);
+   }
 
    int (* ncui)(int, char **) = dlsym(handle,"main");
    ncui(newargc, newargv);
