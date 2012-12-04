@@ -2,6 +2,16 @@
 
 # Script to run ncsvc without JAVA gui and web browser
 
+# The author has placed this work in the Public Domain, thereby relinquishing
+# all copyrights. Everyone is free to use, modify, republish, sell or give away
+# this work without prior consent from anybody.
+
+# This software is provided on an "as is" basis, without warranty of any
+# kind. Use at your own risk! Under no circumstances shall the author(s) or
+# contributor(s) be liable for damages resulting directly or indirectly from
+# the use or non-use of this software.
+
+
 use strict;
 use warnings;
 use Term::ReadKey;
@@ -58,7 +68,7 @@ if(defined &LWP::UserAgent::ssl_opts) {
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 
-print "Enter PIN+passsword: ";
+print "Enter PIN+password: ";
 my $password=read_password();
 print "\n";
 
@@ -122,7 +132,7 @@ if ($res->is_success) {
 		$dlast=$1;
 	}
 	if ( $response_body =~ /Invalid username or password/){
-		print "Invalid username or password, exiting \n";
+		print "Invalid user name or password, exiting \n";
 		exit 1;
 	}
 	
@@ -250,7 +260,7 @@ my $status = sprintf("%02x",$result[7]);
 # exit on any other values
 
 if($status ne "6d") {
-	printf("Status=$status\nAuthentification failed, exiting\n");
+	printf("Status=$status\nAuthentication failed, exiting\n");
 	system("./ncsvc -K");
 	exit(1);
 }
