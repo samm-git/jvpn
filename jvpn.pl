@@ -312,7 +312,8 @@ if ($mode eq "ncui"){
 		my $args = "./ncui\n-p\n\n".
 			"-h\n$dhost\n".
 			"-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n".
-			"-f\n$crtfile\n";
+			"-f\n$crtfile\n".
+			($debug?"-l\n5\n-L\n5\n":"");
 		$debug && print $args;
 		open(WRITEME, "|-", "./ncui") or die "Couldn't fork: $!\n";
 		print WRITEME $args;
@@ -323,8 +324,8 @@ if ($mode eq "ncui"){
 	my $exists = kill 0, $pid;
 	my $vpnint = get_new_tap_interface(\@oldlist, 15);
 	if ($vpnint eq '') {
-		printf("Error: new interface not found, check nssvc logs\n");
-		INT_Handler();
+		printf("Error: new interface not found, check ncsvc logs\n");
+		INT_handler();
 	}
 	printf("Connection established, new interface: $vpnint\n");
 	if($exists && $> == 0 && $dnsprotect) {
