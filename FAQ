@@ -11,9 +11,9 @@ A: Use "pull request" at https://github.com/samm-git/jvpn/. Or just by mail.
 
 Q: Could you help me with my VPN account, it does not work?
 A: Only if you can provide credentials to test. I need them to debug 
-   connection from native GUI and jvpn to identify what is going wrong.
+   connection from native GUI and JVPN to identify what is going wrong.
    Also you can try to debug yourself. Some tools i used:
-    * Wireshark/tcpdump - to dump traffic between ncsvc and JAVA gui
-    * strace - to trace vpn processes
+    * Wireshark/tcpdump - to dump traffic between ncsvc and JAVA GUI
+    * strace - to trace VPN processes
     * Java decompiler - to decompile source code of GUI, not too much 
       interesting, anyway
