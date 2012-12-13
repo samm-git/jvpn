@@ -17,3 +17,9 @@ A: Only if you can provide credentials to test. I need them to debug
     * strace - to trace VPN processes
     * Java decompiler - to decompile source code of GUI, not too much 
       interesting, anyway
+
+Q: Is it possible to use jvpn on FreeBSD?
+A: No. FreeBSD supports Linux ABI, but ncsvc heavily depends on Linux network
+   stack, including /proc/net/route, /proc/net/tun, etc. It _should_ be
+   possible to emulate all this staff or to use LD_PRELOAD hacks, but it will
+   require much more efforts.
