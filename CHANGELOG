@@ -1,6 +1,7 @@
 *** 0.5.0
  + added experimental ncui mode support to jvpn
  + added wrapper.c for the ncui mode
+ + implementing stat for the ncui mode
 
 *** 0.4.2
  + added code to handle ncsvc disconnect event. Trying to restore resolv.conf

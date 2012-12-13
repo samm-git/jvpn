@@ -334,7 +334,19 @@ if ($mode eq "ncui"){
 	
 	for (;;) {
 	    $exists = kill SIGCHLD, $pid;
-	    $debug && printf("Checking child: exists=$exists, $pid\n");
+	    $debug && printf("\nChecking child: exists=$exists, $pid\n");
+	    # printing RX/TX from /proc/net/dev
+	    my $now = time - $start_t;
+	    open STAT, "/proc/net/dev" or die $!;
+	    while (<STAT>) {
+	    	    if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
+	    	    	    print "\r                                                              \r";
+	    	    	    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60),
+	    	    	    	    format_bytes($2), format_bytes($1));
+	    	    }
+	    }
+	    close(STAT);
 	    if(!$exists) {
 		INT_handler();
 	    }

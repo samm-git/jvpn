@@ -12,7 +12,7 @@ Features
 Requirements 
  * Perl with LWP modules
  * openssl binary
- * unzip (only for unpacking)
+ * unzip (only for client unpacking)
 
 Usage
 To configure script edit jvpn.ini. If you don`t have installed client - run
