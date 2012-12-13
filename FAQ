@@ -1,0 +1,19 @@
+Q: JVPN is not working for me
+A: Try to enable debug output. You will find logs in the 
+   ~/.juniper_networks/network_connect/ directory. Also you can try ncui mode.
+
+Q: Is it possible to run it non non ARM/MIPS/PPC?
+A: No, because it using closing source VPN client binary available only for
+   i386 platform.
+
+Q: Where to send patches?
+A: Use "pull request" at https://github.com/samm-git/jvpn/. Or just by mail.
+
+Q: Could you help me with my VPN account, it does not work?
+A: Only if you can provide credentials to test. I need them to debug 
+   connection from native GUI and jvpn to identify what is going wrong.
+   Also you can try to debug yourself. Some tools i used:
+    * Wireshark/tcpdump - to dump traffic between ncsvc and JAVA gui
+    * strace - to trace vpn processes
+    * Java decompiler - to decompile source code of GUI, not too much 
+      interesting, anyway
