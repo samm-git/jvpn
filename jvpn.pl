@@ -265,17 +265,18 @@ if($mode eq "ncsvc") {
 	if($debug) {hdump($data);}
 		print $socket "$data";
 	$socket->recv($data,2048);
-	# XXX - good idea to chek if it valid
+	# XXX - good idea to chek if it is valid
 	print " [done]\n";
 	if($debug) {hdump($data);}
+	my $dsidline="DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure";
 	# Configuration packet
 	# XXX - no idea how it works on non default port
-	$data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0\xcb\0\xcb\0\0".
-		"\0\xc5\0\x01\0\0\0\x1a".
+	$data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 57)."\0\xcb\0\0".
+		"\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 51)."\0\x01\0\0\0".pack("C*",length($dhost)+1).
 		$dhost.
-		"\0\0\x02\0\0\0\x78".
-		"DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure".
-		"\0\0\x0a\0\0\0\x21".
+		"\0\0\x02\0\0\0".pack("C*",length($dsidline)+1).
+		$dsidline.
+		"\0\0\x0a\0\0\0".pack("C*",length($md5hash)+1).
 		$md5hash.
 		"\0";
 	print "Sending configuration packet...";

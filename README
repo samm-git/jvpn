@@ -8,6 +8,7 @@ Features
    Java.
  * Could protect resolv.conf by setting +i attribute for the connection time
  * Works without Java machine on x86 and x86_64 hosts
+ * Ability to run scripts on connect/disconnect events
 
 Requirements 
  * Perl with LWP modules
@@ -42,6 +43,13 @@ socket to nvsvc daemon and trying to establish connection using it protocol.
 In "ncui" mode jvpn tryin to use main() function libncui.so which later calling
 ncsvc. If default mode does not work for you i am recommending to try "ncui"
 mode. Please note that to use ncui mode you should have gcc installed.
+
+Scripting support
+It is possible to run user-defined scripts on conncect/disconnect events. To
+use this functionality you will need to define script to run in the jvpn.ini
+using script=<scriptname> line. Script should be executable file.
+List of pre-defined variables and sample route table modification could be found 
+in scripts/sample-script.sh.
 
 Bugs and debugging
 This script is done without any documentation, only using wireshark and

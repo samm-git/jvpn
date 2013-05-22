@@ -1,3 +1,8 @@
+*** 0.6.0
+ # fixed packet format in non-ncui mode. This should resolve reported
+   "sending configuration packet" issue.
+ + Added scripting support for up/down events
+
 *** 0.5.0
  + added experimental ncui mode support to jvpn
  + added wrapper.c for the ncui mode
