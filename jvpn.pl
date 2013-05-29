@@ -39,6 +39,7 @@ if($show_help) { print_help(); }
 
 my $dhost=$Config{"host"};
 my $dport=$Config{"port"};
+my $durl=$Config{"url"};
 my $username=$Config{"username"};
 my $realm=$Config{"realm"};
 # debug, set to 1 to enable
@@ -87,7 +88,7 @@ print "\n";
 
 my $response_body = '';
 
-my $res = $ua->post("https://$dhost:$dport/dana-na/auth/url_default/login.cgi",
+my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 	[ btnSubmit   => 'Sign In',
 	password  => $password,
 	realm => $realm,
@@ -115,7 +116,7 @@ if ($res->is_success) {
 		print "Enter PIN+passsword: ";
 		my $password=read_password();
 		print "\n";
-		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/url_default/login.cgi",
+		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ Enter   => 'secidactionEnter',
 			password  => $password,
 			key  => $key,
@@ -126,7 +127,7 @@ if ($res->is_success) {
 	if ($response_body =~ /id="DSIDConfirmForm"/) {
 		$response_body =~ m/name="FormDataStr" value="([^"]+)"/;
 		print "Active sessions found, reconnecting...\n";
-		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/url_default/login.cgi",
+		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ btnContinue   => 'Continue the session',
 			FormDataStr  => $1,
 			]);
