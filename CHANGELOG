@@ -1,3 +1,5 @@
+ + Added ability to change default url
+
 *** 0.6.0
  # fixed packet format in non-ncui mode. This should resolve reported
    "sending configuration packet" issue.

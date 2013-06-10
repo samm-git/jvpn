@@ -56,6 +56,8 @@ if(defined $mode){
 	}
 }
 else { $mode="ncsvc"; }
+# set default url if needed
+$durl = "url_default" if (!defined($durl));
 # checking if we running under root
 
 # we need ncsvc to be uid for all modes
