@@ -47,6 +47,9 @@ my $dnsprotect=$Config{"dnsprotect"};
 my $debug=$Config{"debug"};
 my $verifycert=$Config{"verifycert"};
 my $mode=$Config{"mode"};
+my $script=$Config{"script"};
+my $cfgpass=$Config{"password"};
+my $password="";
 
 # check mode
 if(defined $mode){
@@ -56,6 +59,17 @@ if(defined $mode){
 	}
 }
 else { $mode="ncsvc"; }
+
+# check password method
+if(defined $cfgpass){
+	if($cfgpass !~ /^(interactive|helper:|plaintext:)/) {
+		print "Configuration error: password is set incorrectly ($cfgpass), check jvpn.ini\n";
+		exit 1;
+	}
+}
+else { $cfgpass="interactive"; }
+
+
 # set default url if needed
 $durl = "url_default" if (!defined($durl));
 # checking if we running under root
@@ -84,9 +98,26 @@ if(defined &LWP::UserAgent::ssl_opts) {
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 
-print "Enter PIN+password: ";
-my $password=read_password();
-print "\n";
+if ($cfgpass eq "interactive") {
+	print "Enter PIN+password: ";
+	$password=read_password();
+	print "\n";
+}
+elsif ($cfgpass =~ /^plaintext:(.+)/) {
+	print "Using user-defined password\n";
+	$password=$1;
+	chomp($password);
+}
+elsif ($cfgpass =~ /^helper:(.+)/) {
+	print "Using user-defined script to get the password\n";
+	$password=run_pw_helper($1);
+}
+
+#elsif ($cfgpass == "interactive") {
+#	print "Enter PIN+password: ";
+#	$password=read_password();
+#	print "\n";
+#}
 
 my $response_body = '';
 
@@ -115,9 +146,21 @@ if ($res->is_success) {
 			"To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
 		
-		print "Enter PIN+passsword: ";
-		my $password=read_password();
-		print "\n";
+		# if password was specified in plaintext we should not use it 
+		# here, it will not work anyway
+		if ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
+			print "Enter PIN+password: ";
+			$password=read_password();
+			print "\n";
+		}
+		elsif ($cfgpass =~ /^helper:(.+)/) {
+			print "Using user-defined script to get the password\n";
+			# set current password to the OLDPIN variable to make 
+			# helper aware that we need a new key
+			$ENV{'OLDPIN'}=$password;
+			$password=run_pw_helper($1);
+			delete $ENV{'OLDPIN'}; 
+		}
 		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ Enter   => 'secidactionEnter',
 			password  => $password,
@@ -335,6 +378,13 @@ if ($mode eq "ncui"){
 	if($exists && $> == 0 && $dnsprotect) {
 		system("chattr +i /etc/resolv.conf");
 	}
+	if(defined $script && -x $script){
+		print "Running user-defined script\n";
+		$ENV{'EVENT'}="up";
+		$ENV{'MODE'}=$mode;
+		$ENV{'INTERFACE'}=$vpnint;
+		system($script);
+	}
 	
 	for (;;) {
 	    $exists = kill SIGCHLD, $pid;
@@ -366,6 +416,16 @@ if($mode eq "ncsvc") {
 	$socket->recv($data,2048);
 	if($debug) {hdump($data);}
 
+	if(defined $script && -x $script){
+		print "Running user-defined script\n";
+		$ENV{'EVENT'}="up";
+		$ENV{'MODE'}=$mode;
+		$ENV{'DNS1'}=inet_ntoa(pack("N",unpack('x[84]N',$data)));
+		$ENV{'DNS2'}=inet_ntoa(pack("N",unpack('x[94]N',$data)));
+		$ENV{'IP'}=inet_ntoa(pack("N",unpack('x[48]N',$data)));
+		$ENV{'GATEWAY'}=inet_ntoa(pack("N",unpack('x[68]N',$data)));
+		system($script);
+	}
 	print "IP: ".inet_ntoa(pack("N",unpack('x[48]N',$data))).
 		" Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
 		"\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
@@ -456,6 +516,13 @@ sub INT_handler {
 	    print "restoring resolv.conf\n";
 	    move("/etc/jnpr-nc-resolv.conf","/etc/resolv.conf");
 	}
+	if(defined $script && -x $script){
+		print "Running user-defined script\n";
+		$ENV{'EVENT'}="down";
+		$ENV{'MODE'}=$mode;
+		system($script);
+	}
+
 	print "Exiting\n";
 	exit(0);
 }
@@ -487,8 +554,17 @@ sub parse_config_file {
 	
 }
 
+sub run_pw_helper {
+	my $pw_script="";
+	($pw_script) = @_;
+	if (-x $pw_script){
+		$password=`$pw_script`;
+		chomp $password
+	}
+	return $password;
+}
 sub read_password {
-	my $password = "";
+	$password = "";
 	my $pkey="";
 	# Start reading the keys
 	ReadMode(4); #Disable the control keys

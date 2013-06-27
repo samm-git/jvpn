@@ -1,3 +1,5 @@
+*** 0.6.1
+ # Fixed script support - in 0.6.0 code was not committed by mistake
  + Added ability to change default url
 
 *** 0.6.0
