@@ -1,6 +1,8 @@
 *** 0.6.1
  # Fixed script support - in 0.6.0 code was not committed by mistake
  + Added ability to change default url
+ + Added support for external password providers and example for stoken
+   integration
 
 *** 0.6.0
  # fixed packet format in non-ncui mode. This should resolve reported
