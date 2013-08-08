@@ -37,6 +37,8 @@ if($show_help) { print_help(); }
 # parse configuration
 &parse_config_file ($config_file, \%Config);
 
+my $agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:23.0) Gecko/20100101 Firefox/23.0";
+my $home=$ENV{"HOME"};
 my $dhost=$Config{"host"};
 my $dport=$Config{"port"};
 my $durl=$Config{"url"};
@@ -51,6 +53,15 @@ my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
+
+my $path=".";
+if ($0=~m#^(.*)\\#) {
+    $path="$1";
+} elsif ($0=~m#^(.*)/# ) {
+    $path="$1";
+} else  {`pwd` =~ /(.*)/;
+    $path="$1";
+}
 
 # check mode
 if(defined $mode){
@@ -93,6 +104,7 @@ if( $> != 0 && !$is_setuid) {
 }
 
 my $ua = LWP::UserAgent->new;
+$ua->agent($agent);
 # on RHEL6 ssl_opts is not exists
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
@@ -143,12 +155,14 @@ $response_body=$res->decoded_content;
 my $dsid="";
 my $dlast="";
 my $dfirst="";
+my $dspreauth="";
 
 # Looking at the results...
 if ($res->is_success) {
 	print("Transfer went ok\n");
 	# next token request
-	if ($response_body =~ /name="frmNextToken"/) {
+	
+if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
 		$response_body =~ m/name="key" value="([^"]+)"/;
 		my $key=$1;
 		print  "The server requires that you enter an additional token ".
@@ -156,9 +170,16 @@ if ($res->is_success) {
 			"To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
 		
+		if ($response_body =~ /Challenge:([^"]+)\./) {
+			print $1;
+			print "\n";
+			print "Enter challenge response: ";
+			$password=read_password();
+			print "\n";
+		}
 		# if password was specified in plaintext we should not use it 
 		# here, it will not work anyway
-		if ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
+		elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
 			print "Enter PIN+password: ";
 			$password=read_password();
 			print "\n";
@@ -171,6 +192,7 @@ if ($res->is_success) {
 			$password=run_pw_helper($1);
 			delete $ENV{'OLDPIN'}; 
 		}
+
 		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ Enter   => 'secidactionEnter',
 			password  => $password,
@@ -189,8 +211,98 @@ if ($res->is_success) {
 		$response_body=$res->decoded_content;
 		
 	}
-	
+
 	my $cookie=$ua->cookie_jar->as_string;
+	if ( $cookie =~ /DSPREAUTH=([^;]+);/){
+		$dspreauth=$1;
+	}
+
+	if ( $response_body =~ /Invalid username or password/){
+		print "Invalid user name or password, exiting \n";
+		exit 1;
+	}
+	
+	# do not print DSID in normal mode for security reasons
+	print $debug?"Got dspreauth=$dspreauth\n":"Got dspreauth\n";
+	
+	if ($dspreauth eq "") {
+		print "Unable to get data, exiting \n";
+		exit 1;
+	}
+
+	if (!-e "$path/tncc.jar") {
+		$res = $ua->get("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "$path/tncc.jar");
+		print "tncc does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
+		if (!$res->is_success) {
+			print "Unable to download tncc.jar, exiting \n";
+			exit 1;
+		}
+	}
+
+	system("mkdir -p '$home/.juniper_networks/network_connect'");
+	my $filename = "$home/.juniper_networks/narport.txt";
+	system("rm -f '$filename'");
+
+	my $pid = fork();
+	if ($pid == 0) {
+		my @cmd = ("java");
+		push @cmd, "-classpath", "$path/tncc.jar";
+		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
+		push @cmd, "loglevel", "2";
+		push @cmd, "postRetries", "6";
+		push @cmd, "ivehost", "$dhost";
+		push @cmd, "Parameter0", "interval=30;process_timeout=60;failurl=;logging=0";
+		push @cmd, "locale", "en";
+		push @cmd, "home_dir", "$home";
+		push @cmd, "user_agent", $agent;
+		system(@cmd);
+		exit;
+	}
+
+	my $attempt = 0;
+	while (not -e $filename || -s $filename) {
+		if ($attempt++ gt 5) {
+			print "Timed out waiting for $filename \n";
+			exit 1;
+		}
+		sleep 1;
+	}
+	sleep 3; # wait for server to init, loop connect instead?
+
+	open my $file, '<', $filename; 
+	my $narport = <$file>; 
+	close $file;
+	print $debug?"Got NAR Port=$narport\n":"Got NAR Port\n";
+
+	my $socket = new IO::Socket::INET (
+		PeerHost => "127.0.0.1",
+		PeerPort => "$narport",
+		Proto => "tcp",
+		) or die "ERROR in Socket Creation : $!\n";
+	
+	my $data = "start\nIC=$dhost\nCookie=$dspreauth\nDSSIGNIN=null\n";
+	print $socket $data;
+	$socket->recv($data,2048);
+	if($debug) {hdump($data);}	
+
+	my @resp_lines = split /\n/, $data;
+
+	if($resp_lines[0]!=200) {
+		print "Bad response, exiting \n";
+		exit 1;
+	}
+
+	my %hash = ();
+	$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, %hash);
+
+	my $state_id='';
+	if ( $res->base =~ /id=([^=]+)/){
+		$state_id=$1;
+	}
+	$ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
+
+	$cookie = $ua->cookie_jar->as_string;
+
 	if ( $cookie =~ /DSID=([a-f\d]+)/){
 		$dsid=$1;
 	}
@@ -200,11 +312,7 @@ if ($res->is_success) {
 	if ( $cookie =~ /DSLastAccess=(\d+)/){
 		$dlast=$1;
 	}
-	if ( $response_body =~ /Invalid username or password/){
-		print "Invalid user name or password, exiting \n";
-		exit 1;
-	}
-	
+
 	# do not print DSID in normal mode for security reasons
 	print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"Got DSID\n";
 	
@@ -215,7 +323,7 @@ if ($res->is_success) {
 	
 } else {
 	# Error code, type of error, error message
-		print("An error happened: ".$res->status_line."\n");
+	print("An error happened: ".$res->status_line."\n");
 	exit 1;
 }
 
@@ -306,7 +414,7 @@ if($mode eq "ncsvc") {
 	if($debug) {hdump($data);}
 	print $socket "$data";
 	$socket->recv($data,2048);
-	# XXX - good idea to chek if it valid
+	# XXX - good idea to check if it valid
 	print " [done]\n";
 	if($debug) {hdump($data);}
 
