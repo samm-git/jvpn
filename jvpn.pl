@@ -240,7 +240,7 @@ if ($res->is_success) {
 		}
 		print "[done]\n";
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
-		$res = $ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
+		$res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 		$response_body=$res->decoded_content;
 	}
 	# active sessions found
