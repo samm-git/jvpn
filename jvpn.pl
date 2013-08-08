@@ -221,14 +221,14 @@ if ($res->is_success) {
 			PeerPort => $narport,
 			Proto => 'tcp',
 		) or die "ERROR in Socket Creation : $!\n";
-		print "TCP Connection to narport process established.\n";
+		print "TCP Connection to the tncc.jar process established.\n";
 		my $dspreauth="";
 		my $cookie=$ua->cookie_jar->as_string;
 		if ( $cookie =~ /DSPREAUTH=([^;]+)/){
 			$dspreauth=$1;
 		}
 		# sending DSPREAUTH
-		print "Sending data to tncc... ";
+		print "Sending data to tncc...         ";
 		my $data =   "start\nIC=$dhost\nCookie=$dspreauth\nDSSIGNIN=null\n";
 		hdump($data) if $debug;
 		print $narsocket "$data";
@@ -237,8 +237,10 @@ if ($res->is_success) {
 		my @resp_lines = split /\n/, $data;
 
 		if($resp_lines[0]!=200) {
-			die($resp_lines[2]);
+			print "\nGot non 200 (".$resp_lines[0].") return code\n";
+			exit 1;
 		}
+		print "[done]\n";
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
 		$ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 	}
@@ -642,8 +644,8 @@ sub tncc_start {
 	}
 	# FIXME add some param validation
 	# create directory for logs if not exists
-	mkpath($ENV{"HOME"}."/.juniper_networks") if !-e $ENV{"HOME"}."/.juniper_networks";
-	# just in case. Should we also kill all tncc.jar?
+	mkpath($ENV{"HOME"}."/.juniper_networks/network_connect") if !-e $ENV{"HOME"}."/.juniper_networks/network_connect";
+	# just in case. Should we also kill all tncc.jar processes?
 	unlink $ENV{"HOME"}."/.juniper_networks/narport.txt";
 	my $pid = fork();
 	if ($pid == 0) {
@@ -654,7 +656,7 @@ sub tncc_start {
 		push @cmd, "postRetries", $params{'postRetries'};
 		push @cmd, "ivehost", $params{'ivehost'};
 		push @cmd, "Parameter0", $params{'Parameter0'};
-		push @cmd, "locale", $params{'locale'};;
+		push @cmd, "locale", $params{'locale'};
 		push @cmd, "home_dir", $ENV{'HOME'};
 		push @cmd, "user_agent", $params{'HTTP_USER_AGENT'};
 		system(@cmd);
