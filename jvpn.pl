@@ -53,6 +53,15 @@ my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $password="";
 
+my $path=".";
+if ($0=~m#^(.*)\\#) {
+    $path="$1";
+} elsif ($0=~m#^(.*)/# ) {
+    $path="$1";
+} else  {`pwd` =~ /(.*)/;
+    $path="$1";
+}
+
 # check mode
 if(defined $mode){
 	if($mode !~ /^nc(ui|svc)$/) {
@@ -211,10 +220,19 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 		exit 1;
 	}
 
+	if (!-e "$path/tncc.jar") {
+		$res = $ua->get("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "$path/tncc.jar");
+		print "tncc does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
+		if (!$res->is_success) {
+			print "Unable to download tncc.jar, exiting \n";
+			exit 1;
+		}
+	}
+
 	my $pid = fork();
 	if ($pid == 0) {
 		my @cmd = ("java");
-		push @cmd, "-classpath", "$home/.juniper_networks/tncc.jar";
+		push @cmd, "-classpath", "$path/tncc.jar";
 		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
 		push @cmd, "loglevel", "2";
 		push @cmd, "postRetries", "6";
