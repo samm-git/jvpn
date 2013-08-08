@@ -377,7 +377,7 @@ if($mode eq "ncsvc") {
 		"\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
 	print "Sending handshake #2 packet... ";
 	hdump($data) if $debug;
-		print $socket "$data";
+	print $socket "$data";
 	$socket->recv($data,2048);
 	# XXX - good idea to chek if it is valid
 	print " [done]\n";
