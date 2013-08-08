@@ -269,7 +269,7 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 	if ( $res->base =~ /id=([^=]+)/){
 		$state_id=$1;
 	}
-        $ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
+	$ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 
 	$cookie = $ua->cookie_jar->as_string;
 
