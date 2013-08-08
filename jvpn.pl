@@ -23,6 +23,7 @@ use LWP::UserAgent;
 use HTTP::Cookies;
 use File::Copy;
 use File::Temp;
+use File::Path;
 use POSIX;
 
 my %Config;
@@ -104,6 +105,8 @@ push @{ $ua->requests_redirectable }, 'POST';
 # "host checker" service on a client machine using Java applet.
 if ($hostchecker) {
     $ua->agent('Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0');
+    # emulate javascript java check result
+    $ua->cookie_jar->set_cookie(0,"DSCheckBrowser","java","/",$dhost,$dport,1,1,60*5,0, ());
 }
 else {
     $ua->agent('JVPN/Linux');
@@ -187,9 +190,59 @@ if ($res->is_success) {
 			FormDataStr  => $1,
 			]);
 		$response_body=$res->decoded_content;
-		
 	}
-	
+	# hostchecker authorization
+	if($hostchecker) {
+		if(!-e "./tncc.jar") { # download tncc.jar if not exists
+			print "tncc.jar does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
+			my $resdl = $ua->get ("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "./tncc.jar");
+			if (!$resdl->is_success) {
+				print "Unable to download tncc.jar, exiting \n";
+				exit 1;
+			}
+		}
+		# get state id and check if we on a right page
+		my $state_id='';
+		# samble base https://vpn.com/dana-na/auth/url_default/welcome.cgi?p=preauth&id=state_c63757c951e0050e6d9f22ef13442&signinRealmId=4
+		if ( $res->base =~ /[&?]id=(state_[0-9a-f]+)/){
+			$state_id=$1;
+		}
+		else {
+			print "Unable to get preauth id\n";
+			exit 1;
+		} # now we got preauth, so lets try to start tncc
+		tncc_start($res->decoded_content);
+		open NARPORT, $ENV{"HOME"}."/.juniper_networks/narport.txt" or die $!; 
+		my $narport = <NARPORT>;
+		chomp $narport;
+		close NARPORT;
+		my $narsocket = new IO::Socket::INET (
+			PeerHost => '127.0.0.1',
+			PeerPort => $narport,
+			Proto => 'tcp',
+		) or die "ERROR in Socket Creation : $!\n";
+		print "TCP Connection to narport process established.\n";
+		my $dspreauth="";
+		my $cookie=$ua->cookie_jar->as_string;
+		if ( $cookie =~ /DSPREAUTH=([^;]+)/){
+			$dspreauth=$1;
+		}
+		# sending DSPREAUTH
+		print "Sending data to tncc... ";
+		my $data =   "start\nIC=$dhost\nCookie=$dspreauth\nDSSIGNIN=null\n";
+		hdump($data) if $debug;
+		print $narsocket "$data";
+		$narsocket->recv($data,2048);
+		$narsocket->close();
+		my @resp_lines = split /\n/, $data;
+
+		if($resp_lines[0]!=200) {
+			die($resp_lines[2]);
+		}
+		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
+		$ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
+	}
+
 	my $cookie=$ua->cookie_jar->as_string;
 	if ( $cookie =~ /DSID=([a-f\d]+)/){
 		$dsid=$1;
@@ -283,6 +336,8 @@ if (!-e "./$mode") {
 		exit 1;
 	}
 }
+
+
 my $start_t = time;
 
 my ($socket,$client_socket);
@@ -573,6 +628,46 @@ sub run_pw_helper {
 	}
 	return $password;
 }
+
+sub tncc_start {
+	my $body="";
+	($body) = @_;
+	my @lines = split "\n", $body;
+	my %params = ();
+	# read applet params from the page
+	foreach my $line (@lines) {
+		if ( $line =~ /NAME="([^"]+)"\s+VALUE="([^"]+)"/){
+			$params{ $1 } = $2;
+		}
+	}
+	# FIXME add some param validation
+	# create directory for logs if not exists
+	mkpath($ENV{"HOME"}."/.juniper_networks") if !-e $ENV{"HOME"}."/.juniper_networks";
+	# just in case. Should we also kill all tncc.jar?
+	unlink $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	my $pid = fork();
+	if ($pid == 0) {
+		my @cmd = ("java");
+		push @cmd, "-classpath", "./tncc.jar";
+		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
+		push @cmd, "loglevel", $params{'log_level'};
+		push @cmd, "postRetries", $params{'postRetries'};
+		push @cmd, "ivehost", $params{'ivehost'};
+		push @cmd, "Parameter0", $params{'Parameter0'};
+		push @cmd, "locale", $params{'locale'};;
+		push @cmd, "home_dir", $ENV{'HOME'};
+		push @cmd, "user_agent", $params{'HTTP_USER_AGENT'};
+		system(@cmd);
+		exit;
+	}
+	for(my $i = 0; $i < 10; $i++) {
+		last if(-e $ENV{"HOME"}."/.juniper_networks/narport.txt");
+		sleep 1;
+	}
+	die("Unable to start tncc.jar") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	return $pid;
+}
+
 sub read_password {
 	$password = "";
 	my $pkey="";
