@@ -229,6 +229,10 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 		}
 	}
 
+	system("mkdir -p '$home/.juniper_networks/network_connect'");
+	my $filename = "$home/.juniper_networks/narport.txt";
+	system("rm -f '$filename'");
+
 	my $pid = fork();
 	if ($pid == 0) {
 		my @cmd = ("java");
@@ -245,8 +249,6 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 		exit;
 	}
 
-	my $filename = "$home/.juniper_networks/narport.txt";
-
 	my $attempt = 0;
 	while (not -e $filename || -s $filename) {
 		if ($attempt++ gt 5) {
@@ -255,7 +257,7 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 		}
 		sleep 1;
 	}
-	sleep 2; # wait for server to init, loop connect instead?
+	sleep 3; # wait for server to init, loop connect instead?
 
 	open my $file, '<', $filename; 
 	my $narport = <$file>; 
