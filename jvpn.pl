@@ -152,7 +152,7 @@ my $dfirst="";
 if ($res->is_success) {
 	print("Transfer went ok\n");
 	# next token request
-	if ($response_body =~ /name="frmNextToken"/) {
+	if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
 		$response_body =~ m/name="key" value="([^"]+)"/;
 		my $key=$1;
 		print  "The server requires that you enter an additional token ".
@@ -160,9 +160,16 @@ if ($res->is_success) {
 			"To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
 		
+		if ($response_body =~ /Challenge:([^"]+)\./) {
+			print $1;
+			print "\n";
+			print "Enter challenge response: ";
+			$password=read_password();
+			print "\n";
+		}
 		# if password was specified in plaintext we should not use it 
 		# here, it will not work anyway
-		if ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
+		elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
 			print "Enter PIN+password: ";
 			$password=read_password();
 			print "\n";
