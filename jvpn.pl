@@ -262,13 +262,13 @@ if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextTo
 		exit 1;
 	}
 
- 	my %hash = ();
-        $ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, %hash);
-        
-        my $state_id='';
-        if ( $res->base =~ /id=([^=]+)/){
-                $state_id=$1;
-        }
+	my %hash = ();
+	$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, %hash);
+
+	my $state_id='';
+	if ( $res->base =~ /id=([^=]+)/){
+		$state_id=$1;
+	}
         $ua->get("https://$dhost:$dport/dana-na/auth/url_default/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 
 	$cookie = $ua->cookie_jar->as_string;
