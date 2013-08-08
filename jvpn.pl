@@ -562,15 +562,15 @@ sub INT_handler {
 		system("chattr -i /etc/resolv.conf");
 	}
 	if($mode eq "ncsvc" && $socket->connected()){
-	    print "\nSending disconnect packet\n";
-    	    # disconnect packet
-	    $data="\0\0\0\0\0\0\0\x67\x01\0\0\0\x01\0\0\0\0\0\0\0";
-	    hdump($data) if $debug;
-	    print $socket "$data";
-	    $socket->recv($data,2048);
-	    print "Got reply\n";
-	    # xxx - we are ignoring reply
-	    hdump($data) if $debug;
+		print "\nSending disconnect packet\n";
+		# disconnect packet
+		$data="\0\0\0\0\0\0\0\x67\x01\0\0\0\x01\0\0\0\0\0\0\0";
+		hdump($data) if $debug;
+		print $socket "$data";
+		$socket->recv($data,2048);
+		print "Got reply\n";
+		# xxx - we are ignoring reply
+		hdump($data) if $debug;
 	}
 	print "Logging out...\n";
 	# do logout
@@ -621,9 +621,7 @@ sub parse_config_file {
 			$$Config{$Name} = $Value;                             # Create a hash of the name value pairs
 		}
 	}
-	
 	close(CONFIG);
-	
 }
 
 sub run_pw_helper {
@@ -689,7 +687,6 @@ sub read_password {
 		if(ord($pkey) == 127 || ord($pkey) == 8) {
 			# DEL/Backspace was pressed
 			#1. Remove the last char from the password
-			
 			#2 move the cursor back by one, print a blank character, move the cursor back by one
 			if (length($password)) {
 				print "\b \b";
@@ -718,7 +715,7 @@ sub print_help {
 sub format_bytes
 {
 	my ($size) = @_;
-	
+
 	if ($size > 1099511627776)  #   TiB: 1024 GiB
 	{
 		return sprintf("%.2f TiB", $size / 1099511627776);
