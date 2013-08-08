@@ -361,12 +361,12 @@ if($mode eq "ncsvc") {
 	print "Sending handshake #1 packet... ";
 	$data =   "\0\0\0\0\0\0\0\x64\x01\0\0\0\0\0\0\0\0\0\0\0";
 
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 	print $socket "$data";
 	$socket->recv($data,2048);
 	# XXX - good idea to chek if it valid
 	print " [done]\n";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 
 	# second packet from tcpdump
 	# it contains logging level in the end:
@@ -376,12 +376,12 @@ if($mode eq "ncsvc") {
 	$data= "\0\0\0\0\0\0\0\x7c\x01\0\0\0\x01\0\0\0\0\0\0\x10\0\0\0\0\0\x0a\0\0".
 		"\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
 	print "Sending handshake #2 packet... ";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 		print $socket "$data";
 	$socket->recv($data,2048);
 	# XXX - good idea to chek if it is valid
 	print " [done]\n";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 	my $dsidline="DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure";
 	# Configuration packet
 	# XXX - no idea how it works on non default port
@@ -394,11 +394,11 @@ if($mode eq "ncsvc") {
 		$md5hash.
 		"\0";
 	print "Sending configuration packet...";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 	print $socket "$data";
 	$socket->recv($data,2048);
 	print " [done]\n";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 	# checking reply status
 	my @result = unpack('C*',$data);
 	my $status = sprintf("%02x",$result[7]);
@@ -479,10 +479,10 @@ if ($mode eq "ncui"){
 if($mode eq "ncsvc") {
 	# information query
 	$data =  "\0\0\0\0\0\0\0\x6a\x01\0\0\0\x01\0\0\0\0\0\0\0";
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 	print $socket "$data";
 	$socket->recv($data,2048);
-	if($debug) {hdump($data);}
+	hdump($data) if $debug;
 
 	if(defined $script && -x $script){
 		print "Running user-defined script\n";
@@ -505,14 +505,14 @@ if($mode eq "ncsvc") {
 		#stat query
 		$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
 		print "\r                                                              \r";
-		if($debug) {hdump($data);}
+		hdump($data) if $debug;
 		print $socket "$data";
 		$socket->recv($data,2048);
 		if(!length($data) || !$socket->connected()) {
 		    print "No response from ncsvc, closing connection\n";
 		    INT_handler();
 		}
-		if($debug) {hdump($data);}
+		hdump($data) if $debug;
 		my $now = time - $start_t;
 		# printing RX/TX. This packet also contains encription type,
 		# compression and transport info, but length seems to be variable
@@ -565,12 +565,12 @@ sub INT_handler {
 	    print "\nSending disconnect packet\n";
     	    # disconnect packet
 	    $data="\0\0\0\0\0\0\0\x67\x01\0\0\0\x01\0\0\0\0\0\0\0";
-	    if($debug) {hdump($data);}
+	    hdump($data) if $debug;
 	    print $socket "$data";
 	    $socket->recv($data,2048);
 	    print "Got reply\n";
 	    # xxx - we are ignoring reply
-	    if($debug) {hdump($data);}
+	    hdump($data) if $debug;
 	}
 	print "Logging out...\n";
 	# do logout
@@ -667,11 +667,13 @@ sub tncc_start {
 		system(@cmd);
 		exit;
 	}
+	# wait 10 seconds for narport.txt
 	for(my $i = 0; $i < 10; $i++) {
 		last if(-e $ENV{"HOME"}."/.juniper_networks/narport.txt");
 		sleep 1;
 	}
 	die("Unable to start tncc.jar") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	# FIXME we are returning wrong PID, needs to convert to open
 	return $pid;
 }
 

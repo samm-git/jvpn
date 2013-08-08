@@ -1,3 +1,4 @@
+ + Added experimental code to run host checker from jvpn
  + Include LWP traffic dump in the debug output
  + Added sample script to restore original DNS settings after connect
 
