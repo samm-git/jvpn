@@ -657,13 +657,13 @@ sub tncc_start {
 		my @cmd = ("java");
 		push @cmd, "-classpath", "./tncc.jar";
 		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
-		push @cmd, "loglevel", $params{'log_level'};
-		push @cmd, "postRetries", $params{'postRetries'};
-		push @cmd, "ivehost", $params{'ivehost'};
-		push @cmd, "Parameter0", $params{'Parameter0'};
-		push @cmd, "locale", $params{'locale'};
+		push @cmd, "loglevel", defined($params{'log_level'})?$params{'log_level'}:2;
+		push @cmd, "postRetries", defined($params{'postRetries'})?$params{'postRetries'}:6;
+		push @cmd, "ivehost", defined($params{'ivehost'})?$params{'ivehost'}:$dhost;
+		push @cmd, "Parameter0", defined($params{'Parameter0'})?$params{'ivehost'}:"";
+		push @cmd, "locale", defined($params{'locale'})?$params{'ivehost'}:"en";
 		push @cmd, "home_dir", $ENV{'HOME'};
-		push @cmd, "user_agent", $params{'HTTP_USER_AGENT'};
+		push @cmd, "user_agent", defined($params{'HTTP_USER_AGENT'})?$params{'HTTP_USER_AGENT'}:"";
 		system(@cmd);
 		exit;
 	}
