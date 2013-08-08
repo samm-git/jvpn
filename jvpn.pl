@@ -119,12 +119,6 @@ elsif ($cfgpass =~ /^helper:(.+)/) {
 	$password=run_pw_helper($1);
 }
 
-#elsif ($cfgpass == "interactive") {
-#	print "Enter PIN+password: ";
-#	$password=read_password();
-#	print "\n";
-#}
-
 my $response_body = '';
 
 my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
