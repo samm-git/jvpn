@@ -182,7 +182,7 @@ if ($res->is_success) {
 			$password=run_pw_helper($1);
 			delete $ENV{'OLDPIN'}; 
 		}
-		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ Enter   => 'secidactionEnter',
 			password  => $password,
 			key  => $key,
@@ -193,7 +193,7 @@ if ($res->is_success) {
 	if ($response_body =~ /id="DSIDConfirmForm"/) {
 		$response_body =~ m/name="FormDataStr" value="([^"]+)"/;
 		print "Active sessions found, reconnecting...\n";
-		my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 			[ btnContinue   => 'Continue the session',
 			FormDataStr  => $1,
 			]);
@@ -216,7 +216,7 @@ if ($res->is_success) {
 			$state_id=$1;
 		}
 		else {
-			print "Unable to get preauth id\n";
+			print "Unable to get preauth id from ".$res->base."\n";
 			exit 1;
 		} # now we got preauth, so lets try to start tncc
 		$tncc_pid = tncc_start($res->decoded_content);
