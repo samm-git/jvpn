@@ -98,6 +98,12 @@ if(defined &LWP::UserAgent::ssl_opts) {
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 
+# show LWP traffic dump if debug is enabled
+if($debug){
+    $ua->add_handler("request_send",  sub { shift->dump; return });
+    $ua->add_handler("response_done", sub { shift->dump; return });
+}
+
 if ($cfgpass eq "interactive") {
 	print "Enter PIN+password: ";
 	$password=read_password();
