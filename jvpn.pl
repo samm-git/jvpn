@@ -52,6 +52,7 @@ my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
+my $tncc_pid = 0;
 
 # check mode
 if(defined $mode){
@@ -191,7 +192,7 @@ if ($res->is_success) {
 			]);
 		$response_body=$res->decoded_content;
 	}
-	# hostchecker authorization
+	# hostchecker authorization stage
 	if($hostchecker) {
 		if(!-e "./tncc.jar") { # download tncc.jar if not exists
 			print "tncc.jar does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
@@ -203,7 +204,7 @@ if ($res->is_success) {
 		}
 		# get state id and check if we on a right page
 		my $state_id='';
-		# samble base https://vpn.com/dana-na/auth/url_default/welcome.cgi?p=preauth&id=state_c63757c951e0050e6d9f22ef13442&signinRealmId=4
+		# sample base https://vpn.com/dana-na/auth/url_default/welcome.cgi?p=preauth&id=state_c63757c951e0050e6d9f22ef13442&signinRealmId=4
 		if ( $res->base =~ /[&?]id=(state_[0-9a-f]+)/){
 			$state_id=$1;
 		}
@@ -211,7 +212,7 @@ if ($res->is_success) {
 			print "Unable to get preauth id\n";
 			exit 1;
 		} # now we got preauth, so lets try to start tncc
-		tncc_start($res->decoded_content);
+		$tncc_pid = tncc_start($res->decoded_content);
 		open NARPORT, $ENV{"HOME"}."/.juniper_networks/narport.txt" or die $!; 
 		my $narport = <NARPORT>;
 		chomp $narport;
@@ -589,7 +590,11 @@ sub INT_handler {
 		$ENV{'MODE'}=$mode;
 		system($script);
 	}
-
+	# hostchecker cleanup
+	if($hostchecker) {
+		kill 'KILL', $tncc_pid if $tncc_pid;
+		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	}
 	print "Exiting\n";
 	exit(0);
 }
