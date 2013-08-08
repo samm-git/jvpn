@@ -50,6 +50,7 @@ my $mode=$Config{"mode"};
 my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $password="";
+my $hostchecker=$Config{"hostchecker"};
 
 # check mode
 if(defined $mode){
@@ -69,11 +70,12 @@ if(defined $cfgpass){
 }
 else { $cfgpass="interactive"; }
 
-
+# set host checker mode
+$hostchecker=0 if !defined($mode);
 # set default url if needed
 $durl = "url_default" if (!defined($durl));
-# checking if we running under root
 
+# checking if we running under root
 # we need ncsvc to be uid for all modes
 my $is_setuid = 0;
 if (-e "./ncsvc") {
@@ -98,6 +100,14 @@ if(defined &LWP::UserAgent::ssl_opts) {
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 
+# if Juniper VPN server finds some 'known to be smart' useragent it will try to start
+# "host checker" service on a client machine using Java applet.
+if ($hostchecker) {
+    $ua->agent('Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0');
+}
+else {
+    $ua->agent('JVPN/Linux');
+}
 # show LWP traffic dump if debug is enabled
 if($debug){
     $ua->add_handler("request_send",  sub { shift->dump; return });
