@@ -282,7 +282,7 @@ if ($res->is_success) {
 	
 } else {
 	# Error code, type of error, error message
-		print("An error happened: ".$res->status_line."\n");
+	print("An error happened: ".$res->status_line."\n");
 	exit 1;
 }
 
@@ -600,6 +600,7 @@ sub INT_handler {
 		print "Killing tncc.jar...\n";
 		kill 'KILL', $tncc_pid if $tncc_pid;
 		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+		unlink $ENV{"HOME"}."/.juniper_networks/network_connect/ncsvc.log" if -e $ENV{"HOME"}."/.juniper_networks/network_connect/ncsvc.log";
 	}
 	if(defined $script && -x $script){
 		print "Running user-defined script\n";
