@@ -188,6 +188,10 @@ if ($res->is_success) {
 			]);
 		$response_body=$res->decoded_content;
 	}
+	if ( $response_body =~ /Invalid username or password/){
+		print "Invalid user name or password, exiting \n";
+		exit 1;
+	}
 	# hostchecker authorization stage
 	if($hostchecker) {
 		if(!-e "./tncc.jar") { # download tncc.jar if not exists
@@ -231,6 +235,11 @@ if ($res->is_success) {
 		print $narsocket "$data";
 		$narsocket->recv($data,2048);
 		$narsocket->close();
+		if(!length($data)) {
+			print "\nUnable to get data from tncc, exiting";
+			exit 1;
+		}
+		hdump($data) if $debug;
 		my @resp_lines = split /\n/, $data;
 
 		if($resp_lines[0]!=200) {
@@ -252,7 +261,6 @@ if ($res->is_success) {
 			]);
 		$response_body=$res->decoded_content;
 	}
-
 	my $cookie=$ua->cookie_jar->as_string;
 	if ( $cookie =~ /DSID=([a-f\d]+)/){
 		$dsid=$1;
@@ -262,10 +270,6 @@ if ($res->is_success) {
 	}
 	if ( $cookie =~ /DSLastAccess=(\d+)/){
 		$dlast=$1;
-	}
-	if ( $response_body =~ /Invalid username or password/){
-		print "Invalid user name or password, exiting \n";
-		exit 1;
 	}
 	
 	# do not print DSID in normal mode for security reasons
