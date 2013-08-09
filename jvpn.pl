@@ -217,11 +217,7 @@ if ($res->is_success) {
 		my $narport = <NARPORT>;
 		chomp $narport;
 		close NARPORT;
-		my $narsocket = new IO::Socket::INET (
-			PeerHost => '127.0.0.1',
-			PeerPort => $narport,
-			Proto => 'tcp',
-		) or die "ERROR in Socket Creation : $!\n";
+		my $narsocket = retry_port($narport);
 		print "TCP Connection to the tncc.jar process established.\n";
 		my $dspreauth="";
 		my $cookie=$ua->cookie_jar->as_string;
@@ -686,6 +682,22 @@ sub tncc_start {
 	}
 	die("Unable to start tncc.jar process") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
 	return $pid;
+}
+
+sub retry_port {
+	my $port = shift;
+
+	my $retry = 10;
+	while ( $retry-- ) {
+		my $socket = IO::Socket::INET->new(
+			Proto    => 'tcp',
+			PeerAddr => '127.0.0.1',
+			PeerPort => $port,
+		);
+		return $socket if $socket;
+		sleep 1;
+	}
+	die "Error connecting to port: $port";
 }
 
 sub read_password {
