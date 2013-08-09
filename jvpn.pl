@@ -268,15 +268,20 @@ if ($res->is_success) {
 	if ( $cookie =~ /DSFirstAccess=(\d+)/){
 		$dfirst=$1;
 	}
+	else {
+		$dfirst=time();
+	}
 	if ( $cookie =~ /DSLastAccess=(\d+)/){
 		$dlast=$1;
+	}
+	else {
+		$dlast=time();
 	}
 	
 	# do not print DSID in normal mode for security reasons
 	print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"Got DSID\n";
-	
-	if ($dsid eq "" || $dfirst eq "" || $dlast eq "") {
-		print "Unable to get data, exiting \n";
+	if ($dsid eq "") {
+		print "Unable to get DSID, exiting \n";
 		exit 1;
 	}
 	
