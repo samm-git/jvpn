@@ -156,9 +156,7 @@ if ($res->is_success) {
 		$response_body =~ m/name="key" value="([^"]+)"/;
 		my $key=$1;
 		print  "The server requires that you enter an additional token ".
-			"code to verify that your credentials are valid.\n".
-			"To continue, wait for the token code to change and ".
-			"then enter the new pin and code.\n";
+			"code to verify that your credentials are valid.\n";
 		# grid cards. $1 contains grid reference
 		if ($response_body =~ /Challenge:([^"]+)\./) {
 			print $1;
@@ -170,12 +168,14 @@ if ($res->is_success) {
 		# if password was specified in plaintext we should not use it 
 		# here, it will not work anyway
 		elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
+			print "To continue, wait for the token code to change and ".
+			"then enter the new pin and code.\n";
 			print "Enter PIN+password: ";
 			$password=read_password();
 			print "\n";
 		}
 		elsif ($cfgpass =~ /^helper:(.+)/) {
-			print "Using user-defined script to get the password\n";
+			print "Using user-defined script to get second password\n";
 			# set current password to the OLDPIN variable to make 
 			# helper aware that we need a new key
 			$ENV{'OLDPIN'}=$password;
