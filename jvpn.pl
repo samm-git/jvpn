@@ -159,7 +159,7 @@ if ($res->is_success) {
 			"code to verify that your credentials are valid.\n".
 			"To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
-		
+		# grid cards. $1 contains grid reference
 		if ($response_body =~ /Challenge:([^"]+)\./) {
 			print $1;
 			print "\n";
@@ -592,16 +592,17 @@ sub INT_handler {
 	    print "restoring resolv.conf\n";
 	    move("/etc/jnpr-nc-resolv.conf","/etc/resolv.conf");
 	}
+	# hostchecker cleanup
+	if($hostchecker) {
+		print "Killing tncc.jar...\n";
+		kill 'KILL', $tncc_pid if $tncc_pid;
+		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	}
 	if(defined $script && -x $script){
 		print "Running user-defined script\n";
 		$ENV{'EVENT'}="down";
 		$ENV{'MODE'}=$mode;
 		system($script);
-	}
-	# hostchecker cleanup
-	if($hostchecker) {
-		kill 'KILL', $tncc_pid if $tncc_pid;
-		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
 	}
 	print "Exiting\n";
 	exit(0);
@@ -670,16 +671,15 @@ sub tncc_start {
 		push @cmd, "locale", defined($params{'locale'})?$params{'ivehost'}:"en";
 		push @cmd, "home_dir", $ENV{'HOME'};
 		push @cmd, "user_agent", defined($params{'HTTP_USER_AGENT'})?$params{'HTTP_USER_AGENT'}:"";
-		system(@cmd);
-		exit;
+		exec(@cmd);
+		exit; # should never be reached
 	}
-	# wait 10 seconds for narport.txt
+	# wait up to 10 seconds for narport.txt
 	for(my $i = 0; $i < 10; $i++) {
 		last if(-e $ENV{"HOME"}."/.juniper_networks/narport.txt");
 		sleep 1;
 	}
-	die("Unable to start tncc.jar") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
-	# FIXME we are returning wrong PID, needs to convert to open
+	die("Unable to start tncc.jar process") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
 	return $pid;
 }
 
