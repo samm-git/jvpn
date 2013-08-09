@@ -43,7 +43,6 @@ my $dport=$Config{"port"};
 my $durl=$Config{"url"};
 my $username=$Config{"username"};
 my $realm=$Config{"realm"};
-# debug, set to 1 to enable
 my $dnsprotect=$Config{"dnsprotect"};
 my $debug=$Config{"debug"};
 my $verifycert=$Config{"verifycert"};
@@ -609,20 +608,16 @@ sub INT_handler {
 }
 
 sub parse_config_file {
-	
 	my $Name,my $Value; my $Config; my $File;
-	
+
 	($File, $Config) = @_;
-	
 	if (!open (CONFIG, "$File")) {
 		print "ERROR: Config file not found : $File\n";
 		exit(1);
 	}
-	
 	while (<CONFIG>) {
 		my $config_line=$_;
-		chop ($config_line);          # Get rid of the trailling \n
-		
+		chomp ($config_line);         # Get rid of the trailling \n
 		$config_line =~ s/^\s*//;     # Remove spaces at the start of the line
 		$config_line =~ s/\s*$//;     # Remove spaces at the end of the line
 		if ( ($config_line !~ /^#/) && ($config_line ne "") ){    # Ignore lines starting with # and blank lines
