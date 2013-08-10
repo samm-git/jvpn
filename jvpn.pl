@@ -253,11 +253,7 @@ if ($res->is_success) {
 			$dspreauth=$1;
 		}
 		if(length($dspreauth)) {
-			$narsocket = new IO::Socket::INET (
-				PeerHost => '127.0.0.1',
-				PeerPort => $narport,
-				Proto => 'tcp',
-			) or die "ERROR in Socket Creation : $!\n";
+			$narsocket = retry_port($narport);
 			$data =   "setcookie\nCookie=$dspreauth\n";
 			hdump($data) if $debug;
 			print $narsocket "$data";
@@ -618,7 +614,6 @@ sub INT_handler {
 		print "Killing tncc.jar...\n";
 		kill 'KILL', $tncc_pid if $tncc_pid;
 		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
-		unlink $ENV{"HOME"}."/.juniper_networks/network_connect/ncsvc.log" if -e $ENV{"HOME"}."/.juniper_networks/network_connect/ncsvc.log";
 	}
 	if(defined $script && -x $script){
 		print "Running user-defined script\n";
