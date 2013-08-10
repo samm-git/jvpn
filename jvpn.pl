@@ -250,6 +250,23 @@ if ($res->is_success) {
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
 		$res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 		$response_body=$res->decoded_content;
+		# send "setcookie" command as native client do
+		$cookie=$ua->cookie_jar->as_string;
+		$dspreauth = "";
+		if ( $cookie =~ /DSPREAUTH=([^;]+)/){
+			$dspreauth=$1;
+		}
+		if(length($dspreauth)) {
+			$narsocket = new IO::Socket::INET (
+				PeerHost => '127.0.0.1',
+				PeerPort => $narport,
+				Proto => 'tcp',
+			) or die "ERROR in Socket Creation : $!\n";
+			$data =   "setcookie\nCookie=$dspreauth\n";
+			hdump($data) if $debug;
+			print $narsocket "$data";
+			$narsocket->close();
+		}
 	}
 	# active sessions found
 	if ($response_body =~ /id="DSIDConfirmForm"/) {
