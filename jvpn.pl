@@ -372,13 +372,8 @@ my ($socket,$client_socket);
 my $data;
 if($mode eq "ncsvc") {
 	system("./ncsvc >/dev/null 2>/dev/null &");
-	sleep(3);
 	# connecting to ncsvc using TCP
-	$socket = new IO::Socket::INET (
-		PeerHost => '127.0.0.1',
-		PeerPort => '4242',
-		Proto => 'tcp',
-		) or die "ERROR in Socket Creation : $!\n";
+	$socket = retry_port(4242);
 
 	print "TCP Connection to ncsvc process established.\n";
 
@@ -709,7 +704,7 @@ sub retry_port {
 		return $socket if $socket;
 		sleep 1;
 	}
-	die "Error connecting to port: $port";
+	die "Error connecting to 127.0.0.1:$port : $!";
 }
 
 sub read_password {
