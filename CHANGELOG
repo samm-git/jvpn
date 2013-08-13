@@ -1,7 +1,9 @@
+*** 0.7.0
  + Added experimental code to run host checker from jvpn
  + Include LWP traffic dump in the debug output
  + Added sample script to restore original DNS settings after connect
  + Added experimental grid cards support
+ # fixed processing of last line w/o \n character in configuration file
 
 *** 0.6.1
  # Fixed script support - in 0.6.0 code was not committed by mistake
