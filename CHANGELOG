@@ -1,3 +1,5 @@
+ + Force hostchecker logging if debug is enabled
+
 *** 0.7.0
  + Added experimental code to run host checker from jvpn
  + Include LWP traffic dump in the debug output

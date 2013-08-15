@@ -662,6 +662,10 @@ sub tncc_start {
 			$params{ $1 } = $2;
 		}
 	}
+	# enable tncc debug log
+	if($debug && defined($params{'Parameter0'})){
+		$params{'Parameter0'} =~ s/logging=0/logging=1/;
+	}
 	# FIXME add some param validation
 	# create directory for logs if not exists
 	mkpath($ENV{"HOME"}."/.juniper_networks/network_connect") if !-e $ENV{"HOME"}."/.juniper_networks/network_connect";
@@ -672,7 +676,12 @@ sub tncc_start {
 		my @cmd = ("java");
 		push @cmd, "-classpath", "./tncc.jar";
 		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
-		push @cmd, "loglevel", defined($params{'log_level'})?$params{'log_level'}:2;
+		if($debug) {
+			push @cmd, "log_level", 10;;
+		}
+		else {
+			push @cmd, "log_level", defined($params{'log_level'})?$params{'log_level'}:2;
+		}
 		push @cmd, "postRetries", defined($params{'postRetries'})?$params{'postRetries'}:6;
 		push @cmd, "ivehost", defined($params{'ivehost'})?$params{'ivehost'}:$dhost;
 		push @cmd, "Parameter0", defined($params{'Parameter0'})?$params{'Parameter0'}:"";
