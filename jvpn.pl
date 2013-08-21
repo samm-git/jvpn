@@ -671,11 +671,27 @@ sub tncc_start {
 	mkpath($ENV{"HOME"}."/.juniper_networks/network_connect") if !-e $ENV{"HOME"}."/.juniper_networks/network_connect";
 	# just in case. Should we also kill all tncc.jar processes?
 	unlink $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	# users reported at least 2 different class names.
+	# It is not possible to fetch it from web, because it is hardcoded in hclauncer applet
+	my @jclasses = ("net.juniper.tnc.NARPlatform.linux.LinuxHttpNAR","net.juniper.tnc.HttpNAR.HttpNAR");
+	my $jclass; my $found = '';
+	foreach $jclass (@jclasses) {
+		my $chkpath = $jclass;
+		$chkpath =~ s/\./\//g;
+		$chkpath.=".class";
+		system("unzip -t ./tncc.jar $chkpath >/dev/null 2>&1");
+		$found = $jclass if $? == 0;
+		last if $? == 0;
+	}
+	if($found eq ""){
+		print "Unable to find correct start class in the tncc.jar, please report problem to developer\n";
+		exit 1;
+	}
 	my $pid = fork();
 	if ($pid == 0) {
 		my @cmd = ("java");
 		push @cmd, "-classpath", "./tncc.jar";
-		push @cmd, "net.juniper.tnc.HttpNAR.HttpNAR";
+		push @cmd, $found; # class name, could be different
 		if($debug) {
 			push @cmd, "log_level", 10;;
 		}

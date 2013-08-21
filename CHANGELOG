@@ -1,3 +1,4 @@
+ # try to detect valid starting class for tncc.jar
  + Force hostchecker logging if debug is enabled
 
 *** 0.7.0
