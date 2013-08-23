@@ -27,14 +27,19 @@ use File::Path;
 use POSIX;
 
 my %Config;
-my $config_file='jvpn.ini';
-my $show_help=0;
-
+my @config_files = ("./jvpn.ini", $ENV{'HOME'}."/.jvpn.ini", "/etc/jvpn/jvpn.ini");
+my $config_file = '';
+my $show_help = 0;
+# find configuration file
+foreach my $line (@config_files) {
+	$config_file=$line;
+	last if -e $config_file;
+}
+# override from command line if specified
 GetOptions ("config_file=s" => \$config_file,
 	"help" => \$show_help);
 
 if($show_help) { print_help(); }
-
 # parse configuration
 &parse_config_file ($config_file, \%Config);
 
@@ -49,9 +54,16 @@ my $verifycert=$Config{"verifycert"};
 my $mode=$Config{"mode"};
 my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
+my $workdir=$Config{"workdir"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
+
+# change directory
+if (defined $workdir){
+	mkpath($workdir) if !-e $workdir;
+	chdir($workdir);
+}
 
 # check mode
 if(defined $mode){
@@ -101,8 +113,8 @@ if(defined &LWP::UserAgent::ssl_opts) {
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 
-# if Juniper VPN server finds some 'known to be smart' useragent it will try to start
-# "host checker" service on a client machine using Java applet.
+# if Juniper VPN server finds some 'known to be smart' useragent it will try to
+# start "host checker" service on a client machine using Java applet.
 if ($hostchecker) {
     $ua->agent('Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0');
     # emulate javascript java check result
@@ -346,10 +358,15 @@ if (!-e "./$mode") {
 	print "Client not exists, downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
 	if ($res->is_success) {
 		print "Done, extracting\n";
-		system("unzip ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
+		system("unzip -o ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
 		if($mode eq "ncui") {
+			if(!-e 'wrapper.c'){
+				printf "wrapper.c not found in ".getcwd()."\n";
+				printf "Please copy this file from jvpn distro and try again";
+				exit 1;
+			}
 			printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
-			system("gcc -m32 -o ncui wrapper.c -ldl  -Wall 2>&1 >compile.log && chmod +x ./ncui");
+			system("gcc -m32 -o ncui wrapper.c -ldl  -Wall >compile.log 2>&1 && chmod +x ./ncui");
 			if (!-e "./ncui") {
 				printf("Error: Compilation failed, please compile.log\n");
 				exit 1;
