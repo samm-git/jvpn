@@ -59,11 +59,12 @@ my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
-# set narport file based on OS
-my $narport_file = $ENV{"HOME"}."/.juniper_networks/narport.txt";
+# set supportdir based on OS
+my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 if ($^O =~ /darwin/) {
-	$narport_file = $ENV{"HOME"}."/Library/Application Support/Juniper Networks/narport.txt";
+	$supportdir = $ENV{"HOME"}."/Library/Application Support/Juniper Networks";
 }
+my $narport_file = $supportdir."/narport.txt";
 
 # change directory
 if (defined $workdir){
@@ -691,7 +692,7 @@ sub tncc_start {
 	}
 	# FIXME add some param validation
 	# create directory for logs if not exists
-	mkpath($ENV{"HOME"}."/.juniper_networks/network_connect") if !-e $ENV{"HOME"}."/.juniper_networks/network_connect";
+	mkpath($supportdir."/network_connect") if !-e $supportdir."/network_connect";
 	# just in case. Should we also kill all tncc.jar processes?
 	unlink $narport_file;
 	# users reported at least 2 different class names.
