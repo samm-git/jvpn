@@ -129,9 +129,15 @@ if($debug){
     $ua->add_handler("response_done", sub { shift->dump; return });
 }
 
+if (!defined($username) || $username eq "" || $username eq "interactive") {
+	print "Enter username: ";
+	$username=read_input();
+	print "\n";
+}
+
 if ($cfgpass eq "interactive") {
 	print "Enter PIN+password: ";
-	$password=read_password();
+	$password=read_input("password");
 	print "\n";
 }
 elsif ($cfgpass =~ /^plaintext:(.+)/) {
@@ -749,32 +755,42 @@ sub retry_port {
 	die "Error connecting to 127.0.0.1:$port : $!";
 }
 
-sub read_password {
-	$password = "";
+sub read_input {
+	my $param = shift;
+	my $is_passwd = 0;
+	my $input = "";
 	my $pkey="";
+	# Print '*' instead of the real characters when "password" is provided as argument
+	if (defined $param && $param eq "password") {
+		$is_passwd = 1;
+	}
 	# Start reading the keys
-	ReadMode(4); #Disable the control keys
+	ReadMode(4); # Disable the control keys
 	while(ord($pkey = ReadKey(0)) != 10)
 	# This will continue until the Enter key is pressed (decimal value of 10)
 	{
 		# For all value of ord($key) see http://www.asciitable.com/
 		if(ord($pkey) == 127 || ord($pkey) == 8) {
 			# DEL/Backspace was pressed
-			#1. Remove the last char from the password
-			#2 move the cursor back by one, print a blank character, move the cursor back by one
-			if (length($password)) {
+			#   1. Remove the last char from the password
+			#   2. move the cursor back by one, print a blank character, move the cursor back by one
+			if (length($input)) {
 				print "\b \b";
 			}
-			chop($password);
+			chop($input);
 		} elsif(ord($pkey) < 32) {
 			# Do nothing with these control characters
 		} else {
-			$password = $password.$pkey;
-			print "*";
+			$input = $input.$pkey;
+			if ($is_passwd == 1) {
+				print "*";
+			} else {
+				print $pkey;
+			}
 		}
 	}
-	ReadMode(0); #Reset the terminal once we are done
-	return $password;
+	ReadMode(0); # Reset the terminal once we are done
+	return $input;
 }
 
 sub print_help {
