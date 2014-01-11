@@ -59,6 +59,9 @@ my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
+my $supportdir = $ENV{"HOME"}."/.juniper_networks";
+my $narport_file = $supportdir."/narport.txt";
+
 # change directory
 if (defined $workdir){
 	mkpath($workdir) if !-e $workdir;
@@ -225,7 +228,7 @@ if ($res->is_success) {
 			exit 1;
 		} # now we got preauth, so lets try to start tncc
 		$tncc_pid = tncc_start($res->decoded_content);
-		open NARPORT, $ENV{"HOME"}."/.juniper_networks/narport.txt" or die $!; 
+		open NARPORT, $narport_file or die $!; 
 		my $narport = <NARPORT>;
 		chomp $narport;
 		close NARPORT;
@@ -625,7 +628,7 @@ sub INT_handler {
 	if($hostchecker) {
 		print "Killing tncc.jar...\n";
 		kill 'KILL', $tncc_pid if $tncc_pid;
-		unlink $ENV{"HOME"}."/.juniper_networks/narport.txt" if -e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+		unlink $narport_file if -e $narport_file;
 	}
 	if(defined $script && -x $script){
 		print "Running user-defined script\n";
@@ -685,9 +688,9 @@ sub tncc_start {
 	}
 	# FIXME add some param validation
 	# create directory for logs if not exists
-	mkpath($ENV{"HOME"}."/.juniper_networks/network_connect") if !-e $ENV{"HOME"}."/.juniper_networks/network_connect";
+	mkpath($supportdir."/network_connect") if !-e $supportdir."/network_connect";
 	# just in case. Should we also kill all tncc.jar processes?
-	unlink $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	unlink $narport_file;
 	# users reported at least 2 different class names.
 	# It is not possible to fetch it from web, because it is hardcoded in hclauncer applet
 	my @jclasses = ("net.juniper.tnc.NARPlatform.linux.LinuxHttpNAR","net.juniper.tnc.HttpNAR.HttpNAR");
@@ -710,7 +713,7 @@ sub tncc_start {
 		push @cmd, "-classpath", "./tncc.jar";
 		push @cmd, $found; # class name, could be different
 		if($debug) {
-			push @cmd, "log_level", 10;;
+			push @cmd, "log_level", 10;
 		}
 		else {
 			push @cmd, "log_level", defined($params{'log_level'})?$params{'log_level'}:2;
@@ -718,7 +721,7 @@ sub tncc_start {
 		push @cmd, "postRetries", defined($params{'postRetries'})?$params{'postRetries'}:6;
 		push @cmd, "ivehost", defined($params{'ivehost'})?$params{'ivehost'}:$dhost;
 		push @cmd, "Parameter0", defined($params{'Parameter0'})?$params{'Parameter0'}:"";
-		push @cmd, "locale", defined($params{'locale'})?$params{'ivehost'}:"en";
+		push @cmd, "locale", defined($params{'locale'})?$params{'locale'}:"en";
 		push @cmd, "home_dir", $ENV{'HOME'};
 		push @cmd, "user_agent", defined($params{'HTTP_USER_AGENT'})?$params{'HTTP_USER_AGENT'}:"";
 		exec(@cmd);
@@ -726,10 +729,10 @@ sub tncc_start {
 	}
 	# wait up to 10 seconds for narport.txt
 	for(my $i = 0; $i < 10; $i++) {
-		last if(-e $ENV{"HOME"}."/.juniper_networks/narport.txt");
+		last if(-e $narport_file);
 		sleep 1;
 	}
-	die("Unable to start tncc.jar process") if !-e $ENV{"HOME"}."/.juniper_networks/narport.txt";
+	die("Unable to start tncc.jar process") if !-e $narport_file;
 	return $pid;
 }
 
