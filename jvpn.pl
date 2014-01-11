@@ -59,11 +59,7 @@ my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
-# set supportdir based on OS
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
-if ($^O =~ /darwin/) {
-	$supportdir = $ENV{"HOME"}."/Library/Application Support/Juniper Networks";
-}
 my $narport_file = $supportdir."/narport.txt";
 
 # change directory
