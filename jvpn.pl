@@ -83,7 +83,7 @@ $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
 if(!$password){
     print "Enter PIN+password: ";
-    my $password=read_password();
+    $password=read_password();
     print "\n";
 }
 
