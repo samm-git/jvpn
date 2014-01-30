@@ -46,6 +46,7 @@ my $dnsprotect=$Config{"dnsprotect"};
 my $debug=$Config{"debug"};
 my $verifycert=$Config{"verifycert"};
 my $mode=$Config{"mode"};
+my $password=$Config{"password"};
 
 # check mode
 if(defined $mode){
@@ -80,10 +81,11 @@ if(defined &LWP::UserAgent::ssl_opts) {
 }
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
-
-print "Enter PIN+password: ";
-my $password=read_password();
-print "\n";
+if(!$password){
+    print "Enter PIN+password: ";
+    my $password=read_password();
+    print "\n";
+}
 
 my $response_body = '';
 
