@@ -209,6 +209,7 @@ if ($res->is_success) {
 	}
 	# hostchecker authorization stage
 	if($hostchecker) {
+		print "Running hostchecker\n";
 		if(!-e "./tncc.jar") { # download tncc.jar if not exists
 			print "tncc.jar does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
 			my $resdl = $ua->get ("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "./tncc.jar");
@@ -261,6 +262,18 @@ if ($res->is_success) {
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
 		$res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 		$response_body=$res->decoded_content;
+
+		print "Checking for Post Sign-In Notification\n";
+		if ($response_body =~ /Post Sign-In Notification/) {
+			print "Found Post Sign-In Notification, moving on ...\n";
+			$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
+			$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+				[ 'sn-postauth-proceed' => 'Proceed',
+				key => $state_id,
+				]);
+			$response_body=$res->decoded_content;
+		}
+
 		# send "setcookie" command as native client do
 		$cookie=$ua->cookie_jar->as_string;
 		$dspreauth = "";
@@ -276,6 +289,7 @@ if ($res->is_success) {
 		}
 	}
 	# active sessions found
+	print "Checking for active sessions\n";
 	if ($response_body =~ /id="DSIDConfirmForm"/) {
 		$response_body =~ m/name="FormDataStr" value="([^"]+)"/;
 		print "Active sessions found, reconnecting...\n";
@@ -284,6 +298,9 @@ if ($res->is_success) {
 			FormDataStr  => $1,
 			]);
 		$response_body=$res->decoded_content;
+	}
+	else {
+		print "No active sessions found\n";
 	}
 	my $cookie=$ua->cookie_jar->as_string;
 	if ( $cookie =~ /DSID=([a-f\d]+)/){
