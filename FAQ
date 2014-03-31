@@ -23,3 +23,6 @@ A: No. FreeBSD supports Linux ABI, but ncsvc heavily depends on Linux network
    stack, including /proc/net/route, /proc/net/tun, etc. It _should_ be
    possible to emulate all this staff or to use LD_PRELOAD hacks, but it will
    require much more efforts.
+
+Q: What if I get status=6e and Authentication failed
+A: Check, where is your ifconfig binary. It should be at /sbin/ifconfig
