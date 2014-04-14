@@ -550,18 +550,18 @@ if($mode eq "ncsvc") {
 	while ( 1 ) {
 		#stat query
 		$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
-		print "\r                                                              \r";
 		hdump($data) if $debug;
 		print $socket "$data";
 		$socket->recv($data,2048);
 		if(!length($data) || !$socket->connected()) {
-		    print "No response from ncsvc, closing connection\n";
+		    print "\nNo response from ncsvc, closing connection\n";
 		    INT_handler();
 		}
 		hdump($data) if $debug;
 		my $now = time - $start_t;
 		# printing RX/TX. This packet also contains encription type,
 		# compression and transport info, but length seems to be variable
+		print "\r                                                              \r";
 		printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
 			int($now / 3600), int(($now % 3600) / 60), int($now % 60),
 			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
