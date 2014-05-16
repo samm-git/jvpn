@@ -111,7 +111,12 @@ if( $> != 0 && !$is_setuid) {
 my $ua = LWP::UserAgent->new;
 # on RHEL6 ssl_opts is not exists
 if(defined &LWP::UserAgent::ssl_opts) {
-    $ua->ssl_opts('verify_hostname' => $verifycert);
+    if ($verifycert == 0) {
+        $ua->ssl_opts(
+            verify_hostname => 0,
+            SSL_verify_mode   => 'SSL_VERIFY_NONE'
+        );
+    }
 }
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
