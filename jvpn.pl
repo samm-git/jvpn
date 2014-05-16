@@ -713,10 +713,19 @@ sub tncc_start {
 		print "Unable to find correct start class in the tncc.jar, please report problem to developer\n";
 		exit 1;
 	}
+	my @pluginjars = ("/usr/share/icedtea-web/plugin.jar", "/usr/lib/jvm/jdk-7-oracle-i586/jre/lib/plugin.jar");
+	my $pluginjar = '';
+	foreach my $jar (@pluginjars) {
+		if (-f $jar) {
+			$pluginjar = $jar . ':';
+			last;
+		}
+	};
 	my $pid = fork();
+
 	if ($pid == 0) {
 		my @cmd = ("java");
-		push @cmd, "-classpath", "./tncc.jar";
+		push @cmd, "-classpath", "$pluginjar./tncc.jar";
 		push @cmd, $found; # class name, could be different
 		if($debug) {
 			push @cmd, "log_level", 10;
