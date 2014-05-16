@@ -54,8 +54,10 @@ my $verifycert=$Config{"verifycert"};
 my $mode=$Config{"mode"};
 my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
+my $cfgtoken=$Config{"token"};
 my $workdir=$Config{"workdir"};
 my $password="";
+my $password2="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
@@ -139,7 +141,7 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
 }
 
 if ($cfgpass eq "interactive") {
-	print "Enter PIN+password: ";
+	print "Enter Password: ";
 	$password=read_input("password");
 	print "\n";
 }
@@ -153,15 +155,32 @@ elsif ($cfgpass =~ /^helper:(.+)/) {
 	$password=run_pw_helper($1);
 }
 
+if ($cfgtoken eq "interactive") {
+        print "Enter PIN+Tokencode: ";
+        $password2=read_input("password");
+        print "\n";
+}
+
 my $response_body = '';
 
-my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-	[ btnSubmit   => 'Sign In',
-	password  => $password,
-	realm => $realm,
-	tz   => '60',
-	username  => $username,
-	]);
+if ($cfgtoken eq "interactive") {
+	my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		[ btnSubmit   => 'Sign In',
+		password  => $password,
+	        "password#2" => $password2,
+		realm => $realm,
+		tz   => '60',
+		username  => $username,
+		]);
+} else {
+	my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		[ btnSubmit   => 'Sign In',
+		password  => $password,
+		realm => $realm,
+		tz   => '60',
+		username  => $username,
+		]);
+}
 
 $response_body=$res->decoded_content;
 my $dsid="";
