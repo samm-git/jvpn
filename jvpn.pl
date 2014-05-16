@@ -162,9 +162,9 @@ if ($cfgtoken eq "interactive") {
 }
 
 my $response_body = '';
-
+my $res;
 if ($cfgtoken eq "interactive") {
-	my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+	$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 		[ btnSubmit   => 'Sign In',
 		password  => $password,
 	        "password#2" => $password2,
@@ -173,7 +173,7 @@ if ($cfgtoken eq "interactive") {
 		username  => $username,
 		]);
 } else {
-	my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+	$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 		[ btnSubmit   => 'Sign In',
 		password  => $password,
 		realm => $realm,
