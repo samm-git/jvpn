@@ -110,6 +110,35 @@ if( $> != 0 && !$is_setuid) {
 	exit 1;
 }
 
+
+if (!defined($username) || $username eq "" || $username eq "interactive") {
+        print "Enter username: ";
+        $username=read_input();
+        print "\n";
+}
+
+if ($cfgpass eq "interactive") {
+        print "Enter Password: ";
+        $password=read_input("password");
+        print "\n";
+}
+elsif ($cfgpass =~ /^plaintext:(.+)/) {
+        print "Using user-defined password\n";
+        $password=$1;
+        chomp($password);
+}
+elsif ($cfgpass =~ /^helper:(.+)/) {
+        print "Using user-defined script to get the password\n";
+        $password=run_pw_helper($1);
+}
+
+if ($cfgtoken eq "interactive") {
+        print "Enter PIN+Tokencode: ";
+        $password2=read_input("password");
+        print "\n";
+}
+
+
 my $ua = LWP::UserAgent->new;
 # on RHEL6 ssl_opts is not exists
 if(defined &LWP::UserAgent::ssl_opts) {
@@ -133,33 +162,6 @@ else {
 if($debug){
     $ua->add_handler("request_send",  sub { shift->dump; return });
     $ua->add_handler("response_done", sub { shift->dump; return });
-}
-
-if (!defined($username) || $username eq "" || $username eq "interactive") {
-	print "Enter username: ";
-	$username=read_input();
-	print "\n";
-}
-
-if ($cfgpass eq "interactive") {
-	print "Enter Password: ";
-	$password=read_input("password");
-	print "\n";
-}
-elsif ($cfgpass =~ /^plaintext:(.+)/) {
-	print "Using user-defined password\n";
-	$password=$1;
-	chomp($password);
-}
-elsif ($cfgpass =~ /^helper:(.+)/) {
-	print "Using user-defined script to get the password\n";
-	$password=run_pw_helper($1);
-}
-
-if ($cfgtoken eq "interactive") {
-        print "Enter PIN+Tokencode: ";
-        $password2=read_input("password");
-        print "\n";
 }
 
 my $response_body = '';
