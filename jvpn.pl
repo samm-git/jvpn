@@ -56,6 +56,7 @@ my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $workdir=$Config{"workdir"};
 my $password="";
+my $password2="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
@@ -79,7 +80,7 @@ else { $mode="ncsvc"; }
 
 # check password method
 if(defined $cfgpass){
-	if($cfgpass !~ /^(interactive|helper:|plaintext:)/) {
+	if($cfgpass !~ /^(interactive|interactive-secondary|helper:|plaintext:)/) {
 		print "Configuration error: password is set incorrectly ($cfgpass), check jvpn.ini\n";
 		exit 1;
 	}
@@ -143,6 +144,14 @@ if ($cfgpass eq "interactive") {
 	$password=read_input("password");
 	print "\n";
 }
+elsif ($cfgpass eq "interactive-secondary") {
+	print "Enter password: ";
+	$password=read_input("password");
+	print "\n";
+	print "Enter password#2: ";
+	$password2=read_input("password");
+	print "\n";
+}
 elsif ($cfgpass =~ /^plaintext:(.+)/) {
 	print "Using user-defined password\n";
 	$password=$1;
@@ -158,6 +167,7 @@ my $response_body = '';
 my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
 	[ btnSubmit   => 'Sign In',
 	password  => $password,
+	'password#2'  => $password2,
 	realm => $realm,
 	tz   => '60',
 	username  => $username,
