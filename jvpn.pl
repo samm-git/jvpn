@@ -55,10 +55,11 @@ my $mode=$Config{"mode"};
 my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
 my $workdir=$Config{"workdir"};
-my $password="";
-my $password2="";
+my $password=$ARGV[0];
+my $password2=$ARGV[1];
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
+my $with_passwords=(defined($password)) && (defined($password2));
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $narport_file = $supportdir."/narport.txt";
@@ -139,27 +140,29 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
 	print "\n";
 }
 
-if ($cfgpass eq "interactive") {
+if (!$with_passwords) {
+    if ($cfgpass eq "interactive") {
 	print "Enter PIN+password: ";
 	$password=read_input("password");
 	print "\n";
-}
-elsif ($cfgpass eq "interactive-secondary") {
+    }
+    elsif ($cfgpass eq "interactive-secondary") {
 	print "Enter password: ";
 	$password=read_input("password");
 	print "\n";
 	print "Enter password#2: ";
 	$password2=read_input("password");
 	print "\n";
-}
-elsif ($cfgpass =~ /^plaintext:(.+)/) {
+    }
+    elsif ($cfgpass =~ /^plaintext:(.+)/) {
 	print "Using user-defined password\n";
 	$password=$1;
 	chomp($password);
-}
-elsif ($cfgpass =~ /^helper:(.+)/) {
+    }
+    elsif ($cfgpass =~ /^helper:(.+)/) {
 	print "Using user-defined script to get the password\n";
 	$password=run_pw_helper($1);
+    }
 }
 
 my $response_body = '';
@@ -509,7 +512,7 @@ if ($mode eq "ncui"){
 		$ENV{'INTERFACE'}=$vpnint;
 		system($script);
 	}
-	
+	write_pid($pid);
 	for (;;) {
 	    $exists = kill SIGCHLD, $pid;
 	    $debug && printf("\nChecking child: exists=$exists, $pid\n");
@@ -519,9 +522,11 @@ if ($mode eq "ncui"){
 	    while (<STAT>) {
 	    	    if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
 	    	    	    print "\r                                                              \r";
-	    	    	    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+	    	    	    my $status = sprintf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
 	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60),
 	    	    	    	    format_bytes($2), format_bytes($1));
+			    print $status;
+			    write_status($status);
 	    	    }
 	    }
 	    close(STAT);
@@ -572,9 +577,11 @@ if($mode eq "ncsvc") {
 		my $now = time - $start_t;
 		# printing RX/TX. This packet also contains encription type,
 		# compression and transport info, but length seems to be variable
-		printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+		my $status = sprintf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
 			int($now / 3600), int(($now % 3600) / 60), int($now % 60),
 			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
+                print $status;
+                write_status($status);
 		sleep(1);
 	}
 
@@ -651,6 +658,10 @@ sub INT_handler {
 		$ENV{'EVENT'}="down";
 		$ENV{'MODE'}=$mode;
 		system($script);
+	}
+	if(-f "/tmp/jvpn.state"){
+	    print "delete jvpn.state file\n";
+	    remove("/tmp/jvpn.state");
 	}
 	print "Exiting\n";
 	exit(0);
@@ -867,4 +878,13 @@ sub get_new_tap_interface
 		sleep(1);
 	}
 	return '';
+}
+
+sub write_status
+{
+    my ($status) = @_;
+    my $filename = '/tmp/jvpn.state';
+    open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+    print $fh $status;
+    close $fh;
 }
