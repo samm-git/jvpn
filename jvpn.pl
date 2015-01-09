@@ -46,6 +46,7 @@ if($show_help) { print_help(); }
 my $dhost=$Config{"host"};
 my $dport=$Config{"port"};
 my $durl=$Config{"url"};
+my $dmult=$Config{"mult_session"};
 my $username=$Config{"username"};
 my $realm=$Config{"realm"};
 my $dnsprotect=$Config{"dnsprotect"};
