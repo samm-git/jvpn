@@ -311,11 +311,13 @@ if ($res->is_success) {
 	}
 	
 	# do not print DSID in normal mode for security reasons
-	print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"Got DSID\n";
+  print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"";
 	if ($dsid eq "") {
 		print "Unable to get DSID, exiting \n";
 		exit 1;
-	}
+	} else {
+		print "Got DSID\n";
+  }
 	
 } else {
 	# Error code, type of error, error message
