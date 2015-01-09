@@ -293,6 +293,7 @@ if ($res->is_success) {
 		$response_body=$res->decoded_content;
 	}
 	my $cookie=$ua->cookie_jar->as_string;
+  ($debug) && print "Cookies: $cookie\n";
 	if ( $cookie =~ /DSID=([a-f\d]+)/){
 		$dsid=$1;
 	}
