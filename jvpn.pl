@@ -383,7 +383,7 @@ elsif($mode eq "ncui") {
 
 if (!-e "./$mode") {
   $res = $ua->get ("https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar",':content_file' => './ncLinuxApp.jar');
-  print "Client not exists, downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
+  print "Client jar not found. Downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
   if ($res->is_success) {
     print "Done, extracting\n";
     system("unzip -o ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
