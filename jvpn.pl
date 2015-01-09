@@ -155,6 +155,7 @@ elsif ($cfgpass =~ /^helper:(.+)/) {
 }
 
 my $response_body = '';
+my $cont_button = '';
 
 my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
   [ btnSubmit   => 'Sign In',
@@ -285,11 +286,25 @@ if ($res->is_success) {
   # active sessions found
   if ($response_body =~ /id="DSIDConfirmForm"/) {
     $response_body =~ m/name="FormDataStr" value="([^"]+)"/;
-    print "Active sessions found, reconnecting...\n";
-    $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/welcome.cgi",
-      [ btnContinue   => 'Continue the session',
-      FormDataStr  => $1,
-      ]);
+    if ($dmult) {
+      if ($response_body =~ /maximum number of open user sessions allowed/) {
+        print "Maximum active sessions found; Exiting...\n";
+        exit 1;
+      } else {
+        $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
+        print "Active sessions found, continuing anyway...\n";
+        $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+          [ btnContinue   => $cont_button,
+          FormDataStr  => $1,
+          ]);
+      }
+    } else {
+      print "Active sessions found, reconnecting...\n";
+      $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+        [ btnContinue   => 'Continue the session',
+        FormDataStr  => $1,
+        ]);
+    }
     $response_body=$res->decoded_content;
   }
   my $cookie=$ua->cookie_jar->as_string;
