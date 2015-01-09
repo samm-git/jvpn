@@ -381,7 +381,7 @@ if (!-e "./$mode") {
 			printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
 			system("gcc -m32 -o ncui wrapper.c -ldl  -Wall >compile.log 2>&1 && chmod +x ./ncui");
 			if (!-e "./ncui") {
-				printf("Error: Compilation failed, please compile.log\n");
+				printf("Error: Compilation failed, please see compile.log\n");
 				exit 1;
 			}
 			else {
