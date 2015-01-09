@@ -13,22 +13,26 @@ Features
  * Integration with external password/token providers, including "stoken" RSA
    softkey.
 
-Requirements 
- * Perl with LWP modules
+Requirements
+ * Perl with LWP modules (https)
  * openssl binary
  * unzip (only for client unpacking)
 
+Extra 32-bit requirements for 64-bit systems:
+ * glibc-devel.i686
+ * zlib.i686
+ * libgcc.i686
+
 Usage
 To configure script edit jvpn.ini. If you don`t have installed client - run
-jvpn.pl under sudo and it will download and install it automatically. If you 
+jvpn.pl under sudo and it will download and install it automatically. If you
 want to run it without sudo - set suid bit on the "ncsvc" binary.
 If you have multiply configurations - use --conf switch to define ini file.
 
 How it works
  1) Script connecting to the VPN web portal with provided user name and password.
  2) Then script handling different authentication scenarios to get DSID value
- 3) After getting DSID value script getting md5 fingerprint of the SSL 
-    certificate.
+ 3) After getting DSID value script getting md5 fingerprint of the SSL certificate.
  4) If VPN client is not installed script downloading and unpacking it.
  5) Script starting ncsvc and connecting to daemon (using TCP 127.0.0.1:4242
     socket in ncsvc mode or using "ncui" wrapper in ncui mode).
@@ -41,7 +45,7 @@ How it works
 
 Difference between mode=ncui and mode=ncsvc
 By default jvpn work in the ncsvc mode. This could be changed in jvpn.ini using
-"mode" configuration setting. In ncsvc (default) mode jvpn establishing TCP 
+"mode" configuration setting. In ncsvc (default) mode jvpn establishing TCP
 socket to nvsvc daemon and trying to establish connection using it protocol.
 In "ncui" mode jvpn tryin to use main() function libncui.so which later calling
 ncsvc. If default mode does not work for you i am recommending to try "ncui"
@@ -51,7 +55,7 @@ Scripting support
 It is possible to run user-defined scripts on conncect/disconnect events. To
 use this functionality you will need to define script to run in the jvpn.ini
 using script=<scriptname> line. Script should be executable file.
-List of pre-defined variables and sample route table modification could be found 
+List of pre-defined variables and sample route table modification could be found
 in scripts/sample-script.sh.
 
 Different ways to provide password
@@ -90,5 +94,5 @@ kind. Use at your own risk! Under no circumstances shall the author(s) or
 contributor(s) be liable for damages resulting directly or indirectly from
 the use or non-use of this software.
 
-Author
-Alex Samorukov, samm@os2.kiev.ua
+Original Author: Alex Samorukov <samm@os2.kiev.ua>
+2015 Revision author: Jeff Vier <jeff@jeffvier.com>
