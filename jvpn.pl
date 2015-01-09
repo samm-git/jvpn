@@ -354,6 +354,7 @@ my $crtfile = '';
 my $fh; # should be global or file is unlinked
 
 if($mode eq "ncsvc") {
+  ($debug) && print "Getting md5hash\n";
   $md5hash = <<`  SHELL`;
   echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
   openssl x509 -md5 -noout -fingerprint|\
@@ -371,6 +372,7 @@ if($mode eq "ncsvc") {
 }
 elsif($mode eq "ncui") {
   # we need to fetch certificate
+  ($debug) && print "Getting md5hash\n";
   $fh = File::Temp->new();
   $crtfile = $fh->filename;
   << `  SHELL`;
@@ -410,12 +412,11 @@ if (!-e "./$mode") {
   }
 }
 
-
 my $start_t = time;
-
 my ($socket,$client_socket);
 my $data;
 if($mode eq "ncsvc") {
+  print "Starting ncsvc mode\n";
   system("./ncsvc >/dev/null 2>/dev/null &");
   # connecting to ncsvc using TCP
   $socket = retry_port(4242);
