@@ -27,7 +27,7 @@ Usage
 To configure script edit jvpn.ini. If you don`t have installed client - run
 jvpn.pl under sudo and it will download and install it automatically. If you
 want to run it without sudo - set suid bit on the "ncsvc" binary.
-If you have multiply configurations - use --conf switch to define ini file.
+If you have multiple configurations - use --conf switch to define ini file.
 
 How it works
  1) Script connecting to the VPN web portal with provided user name and password.
