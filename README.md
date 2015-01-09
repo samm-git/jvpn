@@ -18,7 +18,7 @@ Requirements
  * openssl binary
  * unzip (only for client unpacking)
 
-Extra 32-bit requirements for 64-bit systems:
+Extra 32-bit requirements for 64-bit systems wanting to run ncui:
  * glibc-devel.i686
  * zlib.i686
  * libgcc.i686
