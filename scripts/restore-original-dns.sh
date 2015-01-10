@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This script will restore the DNS server settings to the original DNS settings
 # discarding the DNS servers proposed by the VPN client.
