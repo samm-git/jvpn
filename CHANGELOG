@@ -1,3 +1,9 @@
+*** 0.8.0 (jv)
+ + allow multi-session (if enabled server-side)
+ # converted README to .md
+ + added more requirements
+
+*** 0.7.1
  # try to detect valid starting class for tncc.jar
  + Force hostchecker logging if debug is enabled
 
