@@ -35,17 +35,17 @@ want to run it without sudo - set suid bit on the "ncsvc" binary.
 If you have multiple configurations - use --conf switch to define ini file.
 
 ### How it works
- 1) Script connecting to the VPN web portal with provided user name and password.
- 2) Then script handling different authentication scenarios to get DSID value
- 3) After getting DSID value script getting md5 fingerprint of the SSL certificate.
- 4) If VPN client is not installed script downloading and unpacking it.
- 5) Script starting ncsvc and connecting to daemon (using TCP 127.0.0.1:4242
+ # Script connecting to the VPN web portal with provided user name and password.
+ # Then script handling different authentication scenarios to get DSID value
+ # After getting DSID value script getting md5 fingerprint of the SSL certificate.
+ # If VPN client is not installed script downloading and unpacking it.
+ # Script starting ncsvc and connecting to daemon (using TCP 127.0.0.1:4242
     socket in ncsvc mode or using "ncui" wrapper in ncui mode).
- 6) Script emulates native GUI and passing configuration data to daemon. After
+ # Script emulates native GUI and passing configuration data to daemon. After
     this step VPN should work.
- 7) Script can optionally protect resolv.conf from dhcpd or Network Manager by
+ # Script can optionally protect resolv.conf from dhcpd or Network Manager by
     setting +i flag on it (disabled by default).
- 8) On Ctrl+C script sending "Disconnect" command to the daemon and logging out
+ # On Ctrl+C script sending "Disconnect" command to the daemon and logging out
     on the web site.
 
 ### Difference between `mode=ncui` and `mode=ncsvc`
