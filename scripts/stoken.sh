@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # RSA software token (stoken) password helper
 # see https://github.com/cernekee/stoken/ for the details
