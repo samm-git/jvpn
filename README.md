@@ -1,6 +1,6 @@
 jvpn
 ====
-Connect to Juniper VPN
+Connect to Juniper VPN on the command line without Java
 
 ## Features
  * Works *without Java* on both x86 and x86_64 hosts
