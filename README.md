@@ -20,7 +20,8 @@ Connect to Juniper VPN
  * openssl binary
  * unzip (only for client unpacking)
 
-### Extra 32-bit requirements for 64-bit systems wanting to run ncui:
+### Extra requirements for ncui mode (optional):
+ (note the i686 requirements if your OS is 64-bit)
  * gcc
  * glibc-devel.i686
  * zlib.i686
