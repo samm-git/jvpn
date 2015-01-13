@@ -30,14 +30,18 @@ my %Config;
 my @config_files = ("./jvpn.ini", $ENV{'HOME'}."/.jvpn.ini", "/etc/jvpn/jvpn.ini");
 my $config_file = '';
 my $show_help = 0;
+my $p_kick_string = '';
 # find configuration file
 foreach my $line (@config_files) {
   $config_file=$line;
   last if -e $config_file;
 }
 # override from command line if specified
-GetOptions ("config_file=s" => \$config_file,
-  "help" => \$show_help);
+GetOptions (
+      "config_file=s" => \$config_file,
+      "kick_string=s" => \$p_kick_string,
+      "help" => \$show_help
+      );
 
 if($show_help) { print_help(); }
 # parse configuration
@@ -102,8 +106,12 @@ $durl = "url_default" if (!defined($durl));
 # set user_agent if needed
 $user_agent = "JVPN/$sysname" if (!defined($user_agent));
 
-# set kick_string url if needed
-$kick_string = $user_agent if (!defined($kick_string));
+# set kick_string if needed
+if (defined($p_kick_string)) { ## command line parameter wins
+  $kick_string = $p_kick_string;
+} elsif (!defined($kick_string)) {  ## If undefined, default to our user_agent
+  $kick_string = $user_agent;
+}
 
 # checking if we running under root
 # we need ncsvc to be uid for all modes
@@ -170,10 +178,10 @@ elsif ($cfgpass =~ /^helper:(.+)/) {
 my ($socket,$client_socket);
 my $data;
 
+# Trigger the main sub (which is wrapped as a sub so reconnections are possible)
 connect_vpn();
 
 sub connect_vpn {
-
   my $response_body = '';
   my $cont_button = '';
 
@@ -313,15 +321,27 @@ sub connect_vpn {
             print "Attempting to kick session '$kick_string'...\n";
             #print "response_body: $response_body\n\n";
             my ($session_id, $ip, $login_time, $idle_time) = ($response_body =~ m/name="postfixSID"\s+value="([^"]+)"\/><\/td>\s+<td>([0-9.]+)<\/td>\s+<td>([^<]+)<\/td>\s+<td>([^<]+)<\/td>\s+<td>[^<]*$kick_string[^<]*<\/td>/);
-            ($debug) && print "Session_id being killed: $session_id from IP $ip\n";
-            print "Session_id being killed: $session_id from IP $ip\n";
-
-            $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
-            $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-              [ btnContinue => $cont_button,
-              postfixSID    => $session_id,
-              FormDataStr   => $formdatastr,
-              ]);
+            if ($session_id) {
+              ($debug) && print "Session_id being killed: $session_id from IP $ip\n";
+              print "Session_id being killed: $session_id from IP $ip\n";
+              $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
+              $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+                [ btnContinue => $cont_button,
+                postfixSID    => $session_id,
+                FormDataStr   => $formdatastr,
+                ]);
+            } else {
+              print "Sorry, didn't find a connected '$kick_string' agent. We have:\n";
+              my $valid_kick_string;
+              while ($response_body =~ m/name="postfixSID"\s+value="[^"]+"\/><\/td>\s+<td>([0-9.]+)<\/td>\s+<td>[^<]+<\/td>\s+<td>[^<]+<\/td>\s+<td>([^<]+)<\/td>/g) {
+                print "\t$2 @ $1\n";
+                $valid_kick_string = $2;
+              }
+              print "Try something like this:\n";
+              print "\t$0 --kick_string='$valid_kick_string'\n";
+              print "Exiting.\n";
+              exit 1;
+            }
           } else {
             if ($reconnect) {
               print "Reconnecting.\n";
