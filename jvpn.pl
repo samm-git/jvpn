@@ -167,444 +167,459 @@ elsif ($cfgpass =~ /^helper:(.+)/) {
   $password=run_pw_helper($1);
 }
 
-my $response_body = '';
-my $cont_button = '';
+my ($socket,$client_socket);
+my $data;
 
-my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-  [ btnSubmit   => 'Sign In',
-  password  => $password,
-  realm => $realm,
-  tz   => '60',
-  username  => $username,
-  ]);
+connect_vpn();
 
-$response_body=$res->decoded_content;
-my $dsid="";
-my $dlast="";
-my $dfirst="";
+sub connect_vpn {
 
-# Looking at the results...
-if ($res->is_success) {
-  print("Transfer went ok\n");
-  # next token request
-  if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
-    $response_body =~ m/name="key" value="([^"]+)"/;
-    my $key=$1;
-    print  "The server requires that you enter an additional token ".
-      "code to verify that your credentials are valid.\n";
-    # grid cards. $1 contains grid reference
-    if ($response_body =~ /Challenge:([^"]+)\./) {
-      print $1;
-      print "\n";
-      print "Enter challenge response: ";
-      $password=read_password();
-      print "\n";
-    }
-    # if password was specified in plaintext we should not use it 
-    # here, it will not work anyway
-    elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
-      print "To continue, wait for the token code to change and ".
-      "then enter the new pin and code.\n";
-      print "Enter PIN+password: ";
-      $password=read_password();
-      print "\n";
-    }
-    elsif ($cfgpass =~ /^helper:(.+)/) {
-      print "Using user-defined script to get second password\n";
-      # set current password to the OLDPIN variable to make 
-      # helper aware that we need a new key
-      $ENV{'OLDPIN'}=$password;
-      $password=run_pw_helper($1);
-      delete $ENV{'OLDPIN'}; 
-    }
-    $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-      [ Enter   => 'secidactionEnter',
-      password  => $password,
-      key  => $key,
-      ]);
-    $response_body=$res->decoded_content;
-  }
-  if ( $response_body =~ /Invalid username or password/){
-    print "Invalid user name or password, exiting \n";
-    exit 1;
-  }
-  # hostchecker authorization stage
-  if($hostchecker) {
-    if(!-e "./tncc.jar") { # download tncc.jar if not exists
-      print "tncc.jar does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
-      my $resdl = $ua->get ("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "./tncc.jar");
-      if (!$resdl->is_success) {
-        print "Unable to download tncc.jar, exiting \n";
-        exit 1;
+  my $response_body = '';
+  my $cont_button = '';
+
+  my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+    [ btnSubmit   => 'Sign In',
+    password  => $password,
+    realm => $realm,
+    tz   => '60',
+    username  => $username,
+    ]);
+
+  $response_body=$res->decoded_content;
+  my $dsid="";
+  my $dlast="";
+  my $dfirst="";
+
+  # Looking at the results...
+  if ($res->is_success) {
+    print("Initial connection successful\n");
+    # next token request
+    if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
+      $response_body =~ m/name="key" value="([^"]+)"/;
+      my $key=$1;
+      print  "The server requires that you enter an additional token ".
+        "code to verify that your credentials are valid.\n";
+      # grid cards. $1 contains grid reference
+      if ($response_body =~ /Challenge:([^"]+)\./) {
+        print $1;
+        print "\n";
+        print "Enter challenge response: ";
+        $password=read_password();
+        print "\n";
       }
+      # if password was specified in plaintext we should not use it 
+      # here, it will not work anyway
+      elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
+        print "To continue, wait for the token code to change and ".
+        "then enter the new pin and code.\n";
+        print "Enter PIN+password: ";
+        $password=read_password();
+        print "\n";
+      }
+      elsif ($cfgpass =~ /^helper:(.+)/) {
+        print "Using user-defined script to get second password\n";
+        # set current password to the OLDPIN variable to make 
+        # helper aware that we need a new key
+        $ENV{'OLDPIN'}=$password;
+        $password=run_pw_helper($1);
+        delete $ENV{'OLDPIN'}; 
+      }
+      $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+        [ Enter   => 'secidactionEnter',
+        password  => $password,
+        key  => $key,
+        ]);
+      $response_body=$res->decoded_content;
     }
-    # get state id and check if we on a right page
-    my $state_id='';
-    # sample base https://vpn.com/dana-na/auth/url_default/welcome.cgi?p=preauth&id=state_c63757c951e0050e6d9f22ef13442&signinRealmId=4
-    if ( $res->base =~ /[&?]id=(state_[0-9a-f]+)/){
-      $state_id=$1;
-    }
-    else {
-      print "Unable to get preauth id from ".$res->base."\n";
-      exit 1;
-    } # now we got preauth, so lets try to start tncc
-    $tncc_pid = tncc_start($res->decoded_content);
-    open NARPORT, $narport_file or die $!; 
-    my $narport = <NARPORT>;
-    chomp $narport;
-    close NARPORT;
-    my $narsocket = retry_port($narport);
-    print "TCP Connection to the tncc.jar process established.\n";
-    my $dspreauth="";
-    my $cookie=$ua->cookie_jar->as_string;
-    if ( $cookie =~ /DSPREAUTH=([^;]+)/){
-      $dspreauth=$1;
-    }
-    # sending DSPREAUTH
-    print "Sending data to tncc...         ";
-    my $data =   "start\nIC=$dhost\nCookie=$dspreauth\nDSSIGNIN=null\n";
-    hdump($data) if $debug;
-    print $narsocket "$data";
-    $narsocket->recv($data,2048);
-    $narsocket->close();
-    if(!length($data)) {
-      print "\nUnable to get data from tncc, exiting";
+    if ( $response_body =~ /Invalid username or password/){
+      print "Invalid user name or password, exiting \n";
       exit 1;
     }
-    hdump($data) if $debug;
-    my @resp_lines = split /\n/, $data;
-
-    if($resp_lines[0]!=200) {
-      print "\nGot non 200 (".$resp_lines[0].") return code\n";
-      exit 1;
-    }
-    print "[done]\n";
-    $ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
-    $res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
-    $response_body=$res->decoded_content;
-    # send "setcookie" command as native client do
-    $cookie=$ua->cookie_jar->as_string;
-    $dspreauth = "";
-    if ( $cookie =~ /DSPREAUTH=([^;]+)/){
-      $dspreauth=$1;
-    }
-    if(length($dspreauth)) {
-      $narsocket = retry_port($narport);
-      $data =   "setcookie\nCookie=$dspreauth\n";
+    # hostchecker authorization stage
+    if($hostchecker) {
+      if(!-e "./tncc.jar") { # download tncc.jar if not exists
+        print "tncc.jar does not exist, downloading from https://$dhost:$dport/dana-cached/hc/tncc.jar\n";
+        my $resdl = $ua->get ("https://$dhost:$dport/dana-cached/hc/tncc.jar",":content_file" => "./tncc.jar");
+        if (!$resdl->is_success) {
+          print "Unable to download tncc.jar, exiting \n";
+          exit 1;
+        }
+      }
+      # get state id and check if we on a right page
+      my $state_id='';
+      # sample base https://vpn.com/dana-na/auth/url_default/welcome.cgi?p=preauth&id=state_c63757c951e0050e6d9f22ef13442&signinRealmId=4
+      if ( $res->base =~ /[&?]id=(state_[0-9a-f]+)/){
+        $state_id=$1;
+      }
+      else {
+        print "Unable to get preauth id from ".$res->base."\n";
+        exit 1;
+      } # now we got preauth, so lets try to start tncc
+      $tncc_pid = tncc_start($res->decoded_content);
+      open NARPORT, $narport_file or die $!; 
+      my $narport = <NARPORT>;
+      chomp $narport;
+      close NARPORT;
+      my $narsocket = retry_port($narport);
+      print "TCP Connection to the tncc.jar process established.\n";
+      my $dspreauth="";
+      my $cookie=$ua->cookie_jar->as_string;
+      if ( $cookie =~ /DSPREAUTH=([^;]+)/){
+        $dspreauth=$1;
+      }
+      # sending DSPREAUTH
+      print "Sending data to tncc...         ";
+      my $data =   "start\nIC=$dhost\nCookie=$dspreauth\nDSSIGNIN=null\n";
       hdump($data) if $debug;
       print $narsocket "$data";
+      $narsocket->recv($data,2048);
       $narsocket->close();
-    }
-  }
-  # active sessions found
-  if ($response_body =~ /id="DSIDConfirmForm"/) {
-    $response_body =~ m/name="FormDataStr" value="([^"]+)"/;
-    if ($dmult) {
-      if ($response_body =~ /maximum number of open user sessions allowed/) {
-        print "Maximum active sessions found; Exiting...\n";
+      if(!length($data)) {
+        print "\nUnable to get data from tncc, exiting";
         exit 1;
+      }
+      hdump($data) if $debug;
+      my @resp_lines = split /\n/, $data;
+
+      if($resp_lines[0]!=200) {
+        print "\nGot non 200 (".$resp_lines[0].") return code\n";
+        exit 1;
+      }
+      print "[done]\n";
+      $ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
+      $res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
+      $response_body=$res->decoded_content;
+      # send "setcookie" command as native client do
+      $cookie=$ua->cookie_jar->as_string;
+      $dspreauth = "";
+      if ( $cookie =~ /DSPREAUTH=([^;]+)/){
+        $dspreauth=$1;
+      }
+      if(length($dspreauth)) {
+        $narsocket = retry_port($narport);
+        $data =   "setcookie\nCookie=$dspreauth\n";
+        hdump($data) if $debug;
+        print $narsocket "$data";
+        $narsocket->close();
+      }
+    }
+    # active sessions found
+    if ($response_body =~ /id="DSIDConfirmForm"/) {
+      $response_body =~ m/name="FormDataStr" value="([^"]+)"/;
+      if ($dmult) {
+        if ($response_body =~ /maximum number of open user sessions allowed/) {
+          print "Maximum active sessions found; Exiting...\n";
+          if ($reconnect) {
+            print "Reconnecting\n";
+            sleep 5;
+            connect_vpn();
+          } else {
+            exit 1;
+          }
+        } else {
+          $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
+          print "Active sessions found, continuing anyway...\n";
+          $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+            [ btnContinue   => $cont_button,
+            FormDataStr  => $1,
+            ]);
+        }
       } else {
-        $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
-        print "Active sessions found, continuing anyway...\n";
+        print "Active sessions found, reconnecting...\n";
         $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-          [ btnContinue   => $cont_button,
+          [ btnContinue   => 'Continue the session',
           FormDataStr  => $1,
           ]);
       }
+      $response_body=$res->decoded_content;
+    }
+    my $cookie=$ua->cookie_jar->as_string;
+    ($debug) && print "Cookies: $cookie\n";
+    if ( $cookie =~ /DSID=([a-f\d]+)/){
+      $dsid=$1;
+    }
+    if ( $cookie =~ /DSFirstAccess=(\d+)/){
+      $dfirst=$1;
+    }
+    else {
+      $dfirst=time();
+    }
+    if ( $cookie =~ /DSLastAccess=(\d+)/){
+      $dlast=$1;
+    }
+    else {
+      $dlast=time();
+    }
+    
+    # do not print DSID in normal mode for security reasons
+    print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"";
+    if ($dsid eq "") {
+      print "Unable to get DSID, exiting \n";
+      exit 1;
     } else {
-      print "Active sessions found, reconnecting...\n";
-      $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-        [ btnContinue   => 'Continue the session',
-        FormDataStr  => $1,
-        ]);
+      print "Got DSID\n";
     }
-    $response_body=$res->decoded_content;
-  }
-  my $cookie=$ua->cookie_jar->as_string;
-  ($debug) && print "Cookies: $cookie\n";
-  if ( $cookie =~ /DSID=([a-f\d]+)/){
-    $dsid=$1;
-  }
-  if ( $cookie =~ /DSFirstAccess=(\d+)/){
-    $dfirst=$1;
-  }
-  else {
-    $dfirst=time();
-  }
-  if ( $cookie =~ /DSLastAccess=(\d+)/){
-    $dlast=$1;
-  }
-  else {
-    $dlast=time();
-  }
-  
-  # do not print DSID in normal mode for security reasons
-  print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"";
-  if ($dsid eq "") {
-    print "Unable to get DSID, exiting \n";
-    exit 1;
+    
   } else {
-    print "Got DSID\n";
-  }
-  
-} else {
-  # Error code, type of error, error message
-  print("An error happened: ".$res->status_line."\n");
-  exit 1;
-}
-
-# set int handlers
-$SIG{'INT'}  = \&INT_handler; # CTRL+C
-$SIG{'TERM'} = \&INT_handler; # Kill process
-$SIG{'HUP'} = \&INT_handler; # Terminal closed
-$SIG{'PIPE'} = \&INT_handler; # Process died
-
-# flush after every write
-$| = 1;
-
-my $md5hash = '';
-my $crtfile = ''; 
-my $fh; # should be global or file is unlinked
-
-if($mode eq "ncsvc") {
-  ($debug) && print "Getting md5hash\n";
-  $md5hash = <<`  SHELL`;
-  echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
-  openssl x509 -md5 -noout -fingerprint|\
-  awk -F\= '{print \$2}'|tr -d \:
-  exit 0
-  SHELL
-  chop($md5hash);
-  # changing case
-  $md5hash =~ tr/A-Z/a-z/;
-  if($md5hash eq "") {
-    print "Unable to get md5 hash of certificate, exiting";
+    # Error code, type of error, error message
+    print("An error happened: ".$res->status_line."\n");
     exit 1;
   }
-  print "Certificate fingerprint:  [$md5hash]\n";
-}
-elsif($mode eq "ncui") {
-  # we need to fetch certificate
-  ($debug) && print "Getting md5hash\n";
-  $fh = File::Temp->new();
-  $crtfile = $fh->filename;
-  << `  SHELL`;
-  echo | openssl s_client -connect ${dhost}:${dport} 2>&1 | \
-  sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | \
-  openssl x509 -outform der > $crtfile
-  SHELL
-  printf("Saved certificate to temporary file: $crtfile\n");
-}
 
-if (!-e "./$mode") {
-  $res = $ua->get ("https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar",':content_file' => './ncLinuxApp.jar');
-  print "Client jar not found. Downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
-  if ($res->is_success) {
-    print "Done, extracting\n";
-    system("unzip -o ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
-    if($mode eq "ncui") {
-      if(!-e 'wrapper.c'){
-        printf "wrapper.c not found in ".getcwd()."\n";
-        printf "Please copy this file from jvpn distro and try again";
-        exit 1;
-      }
-      printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
-      system("gcc -m32 -o ncui wrapper.c -ldl  -Wall >compile.log 2>&1 && chmod +x ./ncui");
-      if (!-e "./ncui") {
-        printf("Error: Compilation failed, please see compile.log\n");
-        exit 1;
-      }
-      else {
-        printf("ncui binary compiled\n");
+  # set int handlers
+  $SIG{'INT'}  = \&INT_handler; # CTRL+C
+  $SIG{'TERM'} = \&INT_handler; # Kill process
+  $SIG{'HUP'} = \&INT_handler; # Terminal closed
+  $SIG{'PIPE'} = \&INT_handler; # Process died
+
+  # flush after every write
+  $| = 1;
+
+  my $md5hash = '';
+  my $crtfile = ''; 
+  my $fh; # should be global or file is unlinked
+
+  if($mode eq "ncsvc") {
+    ($debug) && print "Getting md5hash\n";
+    $md5hash = <<`  SHELL`;
+    echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
+    openssl x509 -md5 -noout -fingerprint|\
+    awk -F\= '{print \$2}'|tr -d \:
+    exit 0
+  SHELL
+    chop($md5hash);
+    # changing case
+    $md5hash =~ tr/A-Z/a-z/;
+    if($md5hash eq "") {
+      print "Unable to get md5 hash of certificate, exiting";
+      exit 1;
+    }
+    print "Certificate fingerprint:  [$md5hash]\n";
+  }
+  elsif($mode eq "ncui") {
+    # we need to fetch certificate
+    ($debug) && print "Getting md5hash\n";
+    $fh = File::Temp->new();
+    $crtfile = $fh->filename;
+    << `  SHELL`;
+    echo | openssl s_client -connect ${dhost}:${dport} 2>&1 | \
+    sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | \
+    openssl x509 -outform der > $crtfile
+  SHELL
+    printf("Saved certificate to temporary file: $crtfile\n");
+  }
+
+  if (!-e "./$mode") {
+    $res = $ua->get ("https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar",':content_file' => './ncLinuxApp.jar');
+    print "Client jar not found. Downloading from https://$dhost:$dport/dana-cached/nc/ncLinuxApp.jar\n";
+    if ($res->is_success) {
+      print "Done, extracting\n";
+      system("unzip -o ncLinuxApp.jar ncsvc libncui.so && chmod +x ./ncsvc");
+      if($mode eq "ncui") {
+        if(!-e 'wrapper.c'){
+          printf "wrapper.c not found in ".getcwd()."\n";
+          printf "Please copy this file from jvpn distro and try again";
+          exit 1;
+        }
+        printf "Trying to compile 'ncui'. gcc must be installed to make this possible\n";
+        system("gcc -m32 -o ncui wrapper.c -ldl  -Wall >compile.log 2>&1 && chmod +x ./ncui");
+        if (!-e "./ncui") {
+          printf("Error: Compilation failed, please see compile.log\n");
+          exit 1;
+        }
+        else {
+          printf("ncui binary compiled\n");
+        }
       }
     }
-  }
-  else {
-    print "Download failed, exiting\n";
-    exit 1;
-  }
-}
-
-my $start_t = time;
-my ($socket,$client_socket);
-my $data;
-if($mode eq "ncsvc") {
-  print "Starting ncsvc mode\n";
-  system("./ncsvc >/dev/null 2>/dev/null &");
-  # connecting to ncsvc using TCP
-  $socket = retry_port(4242);
-
-  print "TCP Connection to ncsvc process established.\n";
-
-  # sending first packet, got it from tcpdump
-  print "Sending handshake #1 packet... ";
-  $data =   "\0\0\0\0\0\0\0\x64\x01\0\0\0\0\0\0\0\0\0\0\0";
-
-  hdump($data) if $debug;
-  print $socket "$data";
-  $socket->recv($data,2048);
-  # XXX - good idea to chek if it valid
-  print " [done]\n";
-  hdump($data) if $debug;
-
-  # second packet from tcpdump
-  # it contains logging level in the end:
-  # 0 LogLevel 0, 10 LogLevel 1, 20 LogLevel 2
-  # 30 LogLevel 3, 40 LogLevel 4, 50 LogLevel 5
-  # We are enabling full log if debug is enabled
-  $data= "\0\0\0\0\0\0\0\x7c\x01\0\0\0\x01\0\0\0\0\0\0\x10\0\0\0\0\0\x0a\0\0".
-    "\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
-  print "Sending handshake #2 packet... ";
-  hdump($data) if $debug;
-  print $socket "$data";
-  $socket->recv($data,2048);
-  # XXX - good idea to chek if it is valid
-  print " [done]\n";
-  hdump($data) if $debug;
-  my $dsidline="DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure";
-  # Configuration packet
-  # XXX - no idea how it works on non default port
-  $data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 57)."\0\xcb\0\0".
-    "\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 51)."\0\x01\0\0\0".pack("C*",length($dhost)+1).
-    $dhost.
-    "\0\0\x02\0\0\0".pack("C*",length($dsidline)+1).
-    $dsidline.
-    "\0\0\x0a\0\0\0".pack("C*",length($md5hash)+1).
-    $md5hash.
-    "\0";
-  print "Sending configuration packet...";
-  hdump($data) if $debug;
-  print $socket "$data";
-  $socket->recv($data,2048);
-  print " [done]\n";
-  hdump($data) if $debug;
-  # checking reply status
-  my @result = unpack('C*',$data);
-  my $status = sprintf("%02x",$result[7]);
-  # 0x6d seems to be "Connect ok" message
-  # exit on any other values
-  
-  if($status ne "6d") {
-    printf("Status=$status\nAuthentication failed, exiting\n");
-    system("./ncsvc -K");
-    exit(1);
-  }
-  if($> == 0 && $dnsprotect) {
-    system("chattr +i /etc/resolv.conf");
+    else {
+      print "Download failed, exiting\n";
+      exit 1;
+    }
   }
 
-} # ncsvc
+  my $start_t = time;
+  if($mode eq "ncsvc") {
+    print "Starting ncsvc mode\n";
+    system("./ncsvc >/dev/null 2>/dev/null &");
+    # connecting to ncsvc using TCP
+    $socket = retry_port(4242);
 
+    print "TCP Connection to ncsvc process established.\n";
 
-if ($mode eq "ncui"){
-  print "Starting ncui, this should bring VPN up.\nPress CTRL+C anytime to terminate connection\n";
-  my $childpid;
-  local $SIG{'CHLD'} = 'IGNORE';
-  my @oldlist = get_tap_interfaces();
-  my $pid = fork();
-  if ($pid == 0) {
-    my $args = "./ncui\n-p\n\n".
-      "-h\n$dhost\n".
-      "-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n".
-      "-f\n$crtfile\n".
-      ($debug?"-l\n5\n-L\n5\n":"");
-    $debug && print $args;
-    open(WRITEME, "|-", "./ncui") or die "Couldn't fork: $!\n";
-    print WRITEME $args;
-    close(WRITEME);
-    printf("ncui terminated\n");
-    exit 0;
-  }
-  my $exists = kill 0, $pid;
-  my $vpnint = get_new_tap_interface(\@oldlist, 15);
-  if ($vpnint eq '') {
-    printf("Error: new interface not found, check ncsvc logs\n");
-    INT_handler();
-  }
-  printf("Connection established, new interface: $vpnint\n");
-  if($exists && $> == 0 && $dnsprotect) {
-    system("chattr +i /etc/resolv.conf");
-  }
-  if(defined $script && -x $script){
-    print "Running user-defined script\n";
-    $ENV{'EVENT'}="up";
-    $ENV{'MODE'}=$mode;
-    $ENV{'INTERFACE'}=$vpnint;
-    system($script);
-  }
-  
-  for (;;) {
-      $exists = kill SIGCHLD, $pid;
-      $debug && printf("\nChecking child: exists=$exists, $pid\n");
-      # printing RX/TX from /proc/net/dev
-      my $now = time - $start_t;
-      open STAT, "/proc/net/dev" or die $!;
-      while (<STAT>) {
-            if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
-                  print "\r                                                              \r";
-                  printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-                        int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-                        format_bytes($2), format_bytes($1));
-            }
-      }
-      close(STAT);
-      if(!$exists) {
-    INT_handler();
-      }
-      sleep 2;
-  }
-}
+    # sending first packet, got it from tcpdump
+    print "Sending handshake #1 packet... ";
+    $data =   "\0\0\0\0\0\0\0\x64\x01\0\0\0\0\0\0\0\0\0\0\0";
 
-if($mode eq "ncsvc") {
-  # information query
-  $data =  "\0\0\0\0\0\0\0\x6a\x01\0\0\0\x01\0\0\0\0\0\0\0";
-  hdump($data) if $debug;
-  print $socket "$data";
-  $socket->recv($data,2048);
-  hdump($data) if $debug;
-
-  if(defined $script && -x $script){
-    print "Running user-defined script\n";
-    $ENV{'EVENT'}="up";
-    $ENV{'MODE'}=$mode;
-    $ENV{'DNS1'}=inet_ntoa(pack("N",unpack('x[84]N',$data)));
-    $ENV{'DNS2'}=inet_ntoa(pack("N",unpack('x[94]N',$data)));
-    $ENV{'IP'}=inet_ntoa(pack("N",unpack('x[48]N',$data)));
-    $ENV{'GATEWAY'}=inet_ntoa(pack("N",unpack('x[68]N',$data)));
-    system($script);
-  }
-  print "IP: ".inet_ntoa(pack("N",unpack('x[48]N',$data))).
-    " Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
-    "\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
-    "  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
-    "\nConnected to $dhost, press CTRL+C to exit\n";
-  # disabling cursor
-  print "\e[?25l";
-  while ( 1 ) {
-    #stat query
-    $data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
-    print "\r                                                              \r";
     hdump($data) if $debug;
     print $socket "$data";
     $socket->recv($data,2048);
-    if(!length($data) || !$socket->connected()) {
-        print "No response from ncsvc, closing connection\n";
-        INT_handler();
-    }
+    # XXX - good idea to chek if it valid
+    print " [done]\n";
     hdump($data) if $debug;
-    my $now = time - $start_t;
-    # printing RX/TX. This packet also contains encription type,
-    # compression and transport info, but length seems to be variable
-    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-      int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-      format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
-    sleep(1);
+
+    # second packet from tcpdump
+    # it contains logging level in the end:
+    # 0 LogLevel 0, 10 LogLevel 1, 20 LogLevel 2
+    # 30 LogLevel 3, 40 LogLevel 4, 50 LogLevel 5
+    # We are enabling full log if debug is enabled
+    $data= "\0\0\0\0\0\0\0\x7c\x01\0\0\0\x01\0\0\0\0\0\0\x10\0\0\0\0\0\x0a\0\0".
+      "\0\0\0\x04\0\0\0".($debug?"\x32":"\0");
+    print "Sending handshake #2 packet... ";
+    hdump($data) if $debug;
+    print $socket "$data";
+    $socket->recv($data,2048);
+    # XXX - good idea to chek if it is valid
+    print " [done]\n";
+    hdump($data) if $debug;
+    my $dsidline="DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure";
+    # Configuration packet
+    # XXX - no idea how it works on non default port
+    $data="\0\0\0\0\0\0\0\x66\x01\0\0\0\x01\0\0\0\0\0\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 57)."\0\xcb\0\0".
+      "\0".pack("C*",(length($dhost)+1) + (length($dsidline)+1) + 51)."\0\x01\0\0\0".pack("C*",length($dhost)+1).
+      $dhost.
+      "\0\0\x02\0\0\0".pack("C*",length($dsidline)+1).
+      $dsidline.
+      "\0\0\x0a\0\0\0".pack("C*",length($md5hash)+1).
+      $md5hash.
+      "\0";
+    print "Sending configuration packet...";
+    hdump($data) if $debug;
+    print $socket "$data";
+    $socket->recv($data,2048);
+    print " [done]\n";
+    hdump($data) if $debug;
+    # checking reply status
+    my @result = unpack('C*',$data);
+    my $status = sprintf("%02x",$result[7]);
+    # 0x6d seems to be "Connect ok" message
+    # exit on any other values
+    
+    if($status ne "6d") {
+      printf("Status=$status\nAuthentication failed, exiting\n");
+      system("./ncsvc -K");
+      exit(1);
+    }
+    if($> == 0 && $dnsprotect) {
+      system("chattr +i /etc/resolv.conf");
+    }
+
+  } # ncsvc
+
+  if ($mode eq "ncui"){
+    print "Starting ncui, this should bring VPN up.\nPress CTRL+C anytime to terminate connection\n";
+    my $childpid;
+    local $SIG{'CHLD'} = 'IGNORE';
+    my @oldlist = get_tap_interfaces();
+    my $pid = fork();
+    if ($pid == 0) {
+      my $args = "./ncui\n-p\n\n".
+        "-h\n$dhost\n".
+        "-c\nDSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure\n".
+        "-f\n$crtfile\n".
+        ($debug?"-l\n5\n-L\n5\n":"");
+      $debug && print $args;
+      open(WRITEME, "|-", "./ncui") or die "Couldn't fork: $!\n";
+      print WRITEME $args;
+      close(WRITEME);
+      printf("ncui terminated\n");
+      exit 0;
+    }
+    my $exists = kill 0, $pid;
+    my $vpnint = get_new_tap_interface(\@oldlist, 15);
+    if ($vpnint eq '') {
+      printf("Error: new interface not found, check ncsvc logs\n");
+      INT_handler();
+    }
+    printf("Connection established, new interface: $vpnint\n");
+    if($exists && $> == 0 && $dnsprotect) {
+      system("chattr +i /etc/resolv.conf");
+    }
+    if(defined $script && -x $script){
+      print "Running user-defined script\n";
+      $ENV{'EVENT'}="up";
+      $ENV{'MODE'}=$mode;
+      $ENV{'INTERFACE'}=$vpnint;
+      system($script);
+    }
+    
+    for (;;) {
+        $exists = kill SIGCHLD, $pid;
+        $debug && printf("\nChecking child: exists=$exists, $pid\n");
+        # printing RX/TX from /proc/net/dev
+        my $now = time - $start_t;
+        open STAT, "/proc/net/dev" or die $!;
+        while (<STAT>) {
+              if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
+                    print "\r                                                              \r";
+                    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+                          int($now / 3600), int(($now % 3600) / 60), int($now % 60),
+                          format_bytes($2), format_bytes($1));
+              }
+        }
+        close(STAT);
+        if(!$exists) {
+      INT_handler();
+        }
+        sleep 2;
+    }
   }
 
-  print "Exiting... Connect failed?\n";
-  
-  $socket->close();
-} # mode ncsvc loop
+  if($mode eq "ncsvc") {
+    # information query
+    $data =  "\0\0\0\0\0\0\0\x6a\x01\0\0\0\x01\0\0\0\0\0\0\0";
+    hdump($data) if $debug;
+    print $socket "$data";
+    $socket->recv($data,2048);
+    hdump($data) if $debug;
+
+    if(defined $script && -x $script){
+      print "Running user-defined script\n";
+      $ENV{'EVENT'}="up";
+      $ENV{'MODE'}=$mode;
+      $ENV{'DNS1'}=inet_ntoa(pack("N",unpack('x[84]N',$data)));
+      $ENV{'DNS2'}=inet_ntoa(pack("N",unpack('x[94]N',$data)));
+      $ENV{'IP'}=inet_ntoa(pack("N",unpack('x[48]N',$data)));
+      $ENV{'GATEWAY'}=inet_ntoa(pack("N",unpack('x[68]N',$data)));
+      system($script);
+    }
+    print "IP: ".inet_ntoa(pack("N",unpack('x[48]N',$data))).
+      " Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
+      "\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
+      "  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
+      "\nConnected to $dhost, press CTRL+C to exit\n";
+    # disabling cursor
+    print "\e[?25l";
+    while ( 1 ) {
+      #stat query
+      $data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
+      print "\r                                                              \r";
+      hdump($data) if $debug;
+      print $socket "$data";
+      $socket->recv($data,2048);
+      if(!length($data) || !$socket->connected()) {
+        print "No response from ncsvc, closing connection\n";
+        if ($reconnect) {
+          connect_vpn();
+        } else {
+          INT_handler();
+        }
+      }
+      hdump($data) if $debug;
+      my $now = time - $start_t;
+      # printing RX/TX. This packet also contains encription type,
+      # compression and transport info, but length seems to be variable
+      printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+        int($now / 3600), int(($now % 3600) / 60), int($now % 60),
+        format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
+      sleep(1);
+    }
+
+    print "Exiting... Connect failed?\n";
+    
+    $socket->close();
+  } # mode ncsvc loop
+}
 
 # for debugging
 sub hdump {
