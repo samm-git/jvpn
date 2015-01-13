@@ -47,6 +47,8 @@ my $dhost=$Config{"host"};
 my $dport=$Config{"port"};
 my $durl=$Config{"url"};
 my $dmult=$Config{"mult_session"};
+my $kick=$Config{"kick"};
+my $kick_string=$Config{"kick_string"};
 my $username=$Config{"username"};
 my $realm=$Config{"realm"};
 my $user_agent=$Config{"user_agent"};
@@ -99,6 +101,9 @@ $durl = "url_default" if (!defined($durl));
 
 # set user_agent if needed
 $user_agent = "JVPN/$sysname" if (!defined($user_agent));
+
+# set kick_string url if needed
+$kick_string = $user_agent if (!defined($kick_string));
 
 # checking if we running under root
 # we need ncsvc to be uid for all modes
