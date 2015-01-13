@@ -49,6 +49,7 @@ my $durl=$Config{"url"};
 my $dmult=$Config{"mult_session"};
 my $username=$Config{"username"};
 my $realm=$Config{"realm"};
+my $user_agent=$Config{"user_agent"};
 my $dnsprotect=$Config{"dnsprotect"};
 my $debug=$Config{"debug"};
 my $verifycert=$Config{"verifycert"};
@@ -58,10 +59,13 @@ my $cfgpass=$Config{"password"};
 my $workdir=$Config{"workdir"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
+my $reconnect=$Config{"reconnect"};
 my $tncc_pid = 0;
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $narport_file = $supportdir."/narport.txt";
+
+my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
 
 # change directory
 if (defined $workdir){
@@ -89,8 +93,12 @@ else { $cfgpass="interactive"; }
 
 # set host checker mode
 $hostchecker=0 if !defined($mode);
+
 # set default url if needed
 $durl = "url_default" if (!defined($durl));
+
+# set user_agent if needed
+$user_agent = "JVPN/$sysname" if (!defined($user_agent));
 
 # checking if we running under root
 # we need ncsvc to be uid for all modes
@@ -125,7 +133,7 @@ if ($hostchecker) {
     $ua->cookie_jar->set_cookie(0,"DSCheckBrowser","java","/",$dhost,$dport,1,1,60*5,0, ());
 }
 else {
-    $ua->agent('JVPN/Linux');
+    $ua->agent($user_agent);
 }
 # show LWP traffic dump if debug is enabled
 if($debug){
