@@ -305,30 +305,46 @@ sub connect_vpn {
     }
     # active sessions found
     if ($response_body =~ /id="DSIDConfirmForm"/) {
-      $response_body =~ m/name="FormDataStr" value="([^"]+)"/;
+      my ($formdatastr) = ($response_body =~ m/name="FormDataStr" value="([^"]+)"/);
       if ($dmult) {
         if ($response_body =~ /maximum number of open user sessions allowed/) {
-          print "Maximum active sessions found; Exiting...\n";
-          if ($reconnect) {
-            print "Reconnecting\n";
-            sleep 5;
-            connect_vpn();
+          print "Maximum active sessions found...\n";
+          if ($kick) {
+            print "Attempting to kick session '$kick_string'...\n";
+            #print "response_body: $response_body\n\n";
+            my ($session_id, $ip, $login_time, $idle_time) = ($response_body =~ m/name="postfixSID"\s+value="([^"]+)"\/><\/td>\s+<td>([0-9.]+)<\/td>\s+<td>([^<]+)<\/td>\s+<td>([^<]+)<\/td>\s+<td>[^<]*$kick_string[^<]*<\/td>/);
+            ($debug) && print "Session_id being killed: $session_id from IP $ip\n";
+            print "Session_id being killed: $session_id from IP $ip\n";
+
+            $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
+            $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+              [ btnContinue => $cont_button,
+              postfixSID    => $session_id,
+              FormDataStr   => $formdatastr,
+              ]);
           } else {
-            exit 1;
+            if ($reconnect) {
+              print "Reconnecting.\n";
+              sleep 5;
+              connect_vpn();
+            } else {
+              print "Exiting.\n";
+              exit 1;
+            }
           }
         } else {
           $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
           print "Active sessions found, continuing anyway...\n";
           $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
             [ btnContinue   => $cont_button,
-            FormDataStr  => $1,
+            FormDataStr  => $formdatastr,
             ]);
         }
       } else {
         print "Active sessions found, reconnecting...\n";
         $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
           [ btnContinue   => 'Continue the session',
-          FormDataStr  => $1,
+          FormDataStr  => $formdatastr,
           ]);
       }
       $response_body=$res->decoded_content;
