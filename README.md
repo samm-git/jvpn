@@ -6,19 +6,21 @@ Connect to Juniper VPN on the command line without Java
  * Works *without Java* on both x86 and x86_64 hosts
  * Emulates web browser to get authentication data
  * Automatically starts juniper client and passing data to it using TCP
-   connection (it is not possible with command line).
+    connection (it is not possible with command line).
  * Able to download Linux client from the Juniper VPN server without browser or
-   Java.
+    Java.
  * Supports launching Host Checker to perform checks on a client host.
  * Option to protect resolv.conf by setting +i attribute for the connection time
  * Ability to run scripts on connect/disconnect events
  * Integration with external password/token providers, including "stoken" RSA
-   softkey.
+    softkey.
+ * Ability to kick existing sessions (for example, you forgot to log out of the
+    VPN on another system)
 
 ## Requirements
  * Perl with LWP modules (https)
  * openssl binary
- * unzip (only for client unpacking)
+ * unzip (for client unpacking)
 
 ### Extra requirements for ncui mode (optional):
  (note the i686 requirements if your OS is 64-bit)
