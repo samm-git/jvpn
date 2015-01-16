@@ -161,21 +161,6 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
   print "\n";
 }
 
-if ($cfgpass eq "interactive") {
-  print "Enter password: ";
-  $password=read_input("password");
-  print "\n";
-}
-elsif ($cfgpass =~ /^plaintext:(.+)/) {
-  print "Using user-defined password\n";
-  $password=$1;
-  chomp($password);
-}
-elsif ($cfgpass =~ /^helper:(.+)/) {
-  print "Using user-defined script to get the password\n";
-  $password=run_pw_helper($1);
-}
-
 my ($socket,$client_socket);
 my $data;
 
@@ -185,6 +170,21 @@ connect_vpn();
 sub connect_vpn {
   my $response_body = '';
   my $cont_button = '';
+
+  if ($cfgpass eq "interactive") {
+    print "Enter password: ";
+    $password=read_input("password");
+    print "\n";
+  }
+  elsif ($cfgpass =~ /^plaintext:(.+)/) {
+    print "Using user-defined password\n";
+    $password=$1;
+    chomp($password);
+  }
+  elsif ($cfgpass =~ /^helper:(.+)/) {
+    print "Using user-defined script to get the password\n";
+    $password=run_pw_helper($1);
+  }
 
   if ($token) {
     print "Enter token: ";
