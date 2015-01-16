@@ -106,4 +106,5 @@ the use or non-use of this software.
 
 ## Authors
 Original Author: Alex Samorukov <samm@os2.kiev.ua>
+
 2015 revision author: Jeff Vier <jeff@jeffvier.com>
