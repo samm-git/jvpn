@@ -66,6 +66,7 @@ my $workdir=$Config{"workdir"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $reconnect=$Config{"reconnect"};
+my $token=$Config{"token"};
 my $tncc_pid = 0;
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
@@ -161,7 +162,7 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
 }
 
 if ($cfgpass eq "interactive") {
-  print "Enter PIN+password: ";
+  print "Enter password: ";
   $password=read_input("password");
   print "\n";
 }
@@ -184,6 +185,12 @@ connect_vpn();
 sub connect_vpn {
   my $response_body = '';
   my $cont_button = '';
+
+  if ($token) {
+    print "Enter token: ";
+    $password+=read_input();
+    print "\n";
+  }
 
   my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
     [ btnSubmit   => 'Sign In',
