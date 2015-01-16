@@ -188,7 +188,7 @@ sub connect_vpn {
 
   if ($token) {
     print "Enter token: ";
-    $password+=read_input();
+    $password = $password . read_input();
     print "\n";
   }
 
