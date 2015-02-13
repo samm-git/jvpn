@@ -87,7 +87,9 @@ if(defined $mode){
     exit 1;
   }
 }
-else { $mode="ncsvc"; }
+else {
+  $mode="ncsvc";
+}
 
 # check password method
 if(defined $cfgpass){
@@ -96,7 +98,9 @@ if(defined $cfgpass){
     exit 1;
   }
 }
-else { $cfgpass="interactive"; }
+else {
+  $cfgpass="interactive";
+}
 
 # set host checker mode
 $hostchecker=0 if !defined($mode);
@@ -132,7 +136,7 @@ if( $> != 0 && !$is_setuid) {
 }
 
 my $ua = LWP::UserAgent->new;
-# on RHEL6 ssl_opts is not exists
+# on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
 }
@@ -161,8 +165,7 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
   print "\n";
 }
 
-my ($socket,$client_socket);
-my $data;
+my ($socket,$client_socket,$data);
 
 # Trigger the main sub (which is wrapped as a sub so reconnections are possible)
 connect_vpn();
@@ -226,8 +229,8 @@ sub connect_vpn {
       # here, it will not work anyway
       elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
         print "To continue, wait for the token code to change and ".
-        "then enter the new pin and code.\n";
-        print "Enter PIN+password: ";
+        "then enter your password and new PIN.\n";
+        print "Enter password+PIN: ";
         $password=read_password();
         print "\n";
       }
@@ -269,7 +272,8 @@ sub connect_vpn {
       else {
         print "Unable to get preauth id from ".$res->base."\n";
         exit 1;
-      } # now we got preauth, so lets try to start tncc
+      }
+      # now we got preauth, so lets try to start tncc
       $tncc_pid = tncc_start($res->decoded_content);
       open NARPORT, $narport_file or die $!; 
       my $narport = <NARPORT>;
