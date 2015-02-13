@@ -400,6 +400,7 @@ sub connect_vpn {
     
     # do not print DSID in normal mode for security reasons
     print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"";
+
     if ($dsid eq "") {
       print "Unable to get DSID, exiting \n";
       exit 1;
@@ -407,7 +408,8 @@ sub connect_vpn {
       print "Got DSID\n";
     }
     
-  } else {
+  }
+  else {
     # Error code, type of error, error message
     print("An error happened: ".$res->status_line."\n");
     exit 1;
