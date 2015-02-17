@@ -1,28 +1,30 @@
-Q: JVPN is not working for me
+Q: jvpn is not working for me
 A: Try to enable debug output. You will find logs in the 
    ~/.juniper_networks/network_connect/ directory. Also you can try ncui mode.
 
-Q: Is it possible to run it non non ARM/MIPS/PPC?
-A: No, because it using closing source VPN client binary available only for
-   i386 platform.
+Q: Is it possible to run jvpn on ARM/MIPS/PPC?
+A: No, because it using Juniper's closed source VPN client binary available only
+    for i386 platform.
 
-Q: Where to send patches?
-A: Use "pull request" at https://github.com/samm-git/jvpn/. Or just by mail.
+Q: Where should I send patches?
+A: Use "pull request" at https://github.com/samm-git/jvpn/. Or just by email.
 
 Q: Could you help me with my VPN account, it does not work?
 A: Only if you can provide credentials to test. I need them to debug 
-   connection from native GUI and JVPN to identify what is going wrong.
-   Also you can try to debug yourself. Some tools i used:
-    * Wireshark/tcpdump - to dump traffic between ncsvc and JAVA GUI
+   connection from native GUI and jvpn to identify what is going wrong.
+   Also you can try to debug yourself. Some tools I use:
+    * Wireshark/tcpdump - to dump traffic between ncsvc and Java GUI
     * strace - to trace VPN processes
     * Java decompiler - to decompile source code of GUI, not too much 
       interesting, anyway
 
-Q: Is it possible to use jvpn on FreeBSD?
+Q: Is it possible to use jvpn on FreeBSD or OS X?
 A: No. FreeBSD supports Linux ABI, but ncsvc heavily depends on Linux network
    stack, including /proc/net/route, /proc/net/tun, etc. It _should_ be
    possible to emulate all this staff or to use LD_PRELOAD hacks, but it will
-   require much more efforts.
+   require much more effort.
+
+   If you get it working, please send a patch.
 
 Q: What if I get status=6e and Authentication failed
-A: Check, where is your ifconfig binary. It should be at /sbin/ifconfig
+A: Check the location of your ifconfig binary. It should be at /sbin/ifconfig

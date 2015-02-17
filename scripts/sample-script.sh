@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # this is sample script for the jvpn. It could be used from jvpn if script variable 
 # is defined. jvpn defines some variables which can be used inside:
