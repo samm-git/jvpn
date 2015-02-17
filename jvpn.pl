@@ -430,7 +430,7 @@ sub connect_vpn {
 
   if($mode eq "ncsvc") {
     ($debug) && print "Getting md5hash\n";
-    $md5hash = <<`  SHELL`;
+    $md5hash = lc <<`  SHELL`;
     echo | openssl s_client -connect ${dhost}:${dport} 2>/dev/null| \
     openssl x509 -md5 -noout -fingerprint|\
     awk -F\= '{print \$2}'|tr -d \:
@@ -438,9 +438,8 @@ sub connect_vpn {
   SHELL
     chop($md5hash);
     # changing case
-    $md5hash =~ tr/A-Z/a-z/;
     if($md5hash eq "") {
-      print "Unable to get md5 hash of certificate, exiting";
+      print "Unable to get md5 hash of certificate. Exiting";
       exit 1;
     }
     print "Certificate fingerprint:  [$md5hash]\n";
