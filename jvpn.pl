@@ -182,7 +182,7 @@ if ($res->is_success) {
 			print $1;
 			print "\n";
 			print "Enter challenge response: ";
-			$password=read_password();
+			$password=read_input("password");
 			print "\n";
 		}
 		# if password was specified in plaintext we should not use it 
@@ -191,7 +191,7 @@ if ($res->is_success) {
 			print "To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
 			print "Enter PIN+password: ";
-			$password=read_password();
+			$password=read_input("password");
 			print "\n";
 		}
 		elsif ($cfgpass =~ /^helper:(.+)/) {
