@@ -1,3 +1,6 @@
+Project status update: i do not have access to the Juniper VPN host anymore, 
+so project is stalled. Feel free to fork it or use one of the 30+ forks :)
+
 jvpn.pl - script to connect to the Juniper firewall with enabled HostChecker.
 
 Features
