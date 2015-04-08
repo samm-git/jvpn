@@ -16,6 +16,7 @@ use strict;
 use warnings;
 use Term::ReadKey;
 use IO::Socket::INET;
+use IO::Socket::SSL qw();
 use Fcntl ':mode';
 use Getopt::Long;
 use HTTP::Request::Common;
@@ -111,6 +112,7 @@ if( $> != 0 && !$is_setuid) {
 my $ua = LWP::UserAgent->new;
 # on RHEL6 ssl_opts is not exists
 if(defined &LWP::UserAgent::ssl_opts) {
+    $ua->ssl_opts('SSL_verify_mode' => IO::Socket::SSL::SSL_VERIFY_NONE);
     $ua->ssl_opts('verify_hostname' => $verifycert);
 }
 $ua->cookie_jar({});
