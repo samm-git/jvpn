@@ -141,9 +141,11 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
 }
 
 if ($cfgpass eq "interactive") {
-	print "Enter PIN+password: ";
-	$password=read_input("password");
-	print "\n";
+	do {
+	    print "Enter PIN+password: ";
+	    $password=read_input("password");
+	    print "\n";
+	} while ( $password eq "" );
 }
 elsif ($cfgpass =~ /^plaintext:(.+)/) {
 	print "Using user-defined password\n";
@@ -192,9 +194,11 @@ if ($res->is_success) {
 		elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
 			print "To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
-			print "Enter PIN+password: ";
-			$password=read_input("password");
-			print "\n";
+			do {
+				print "Enter PIN+password: ";
+				$password=read_input("password");
+				print "\n"; 
+			} while ( $password eq "" );
 		}
 		elsif ($cfgpass =~ /^helper:(.+)/) {
 			print "Using user-defined script to get second password\n";
