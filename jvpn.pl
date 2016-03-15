@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -CS
 
 # Script to run ncsvc without JAVA gui and web browser
 
@@ -515,11 +515,12 @@ if ($mode eq "ncui"){
 	    while (<STAT>) {
 	    	    if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
 	    	    	    print "\r                                                              \r";
-	    	    	    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-	    	    	    	    format_bytes($2), format_bytes($1));
+	    	    	    printf("\x{21d1}:%s  \x{21d3}:%s  %02d:%02d:%02d", 
+	    	    	    	    format_bytes($2), format_bytes($1),
+	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	    	    }
 	    }
+	    printf("Runned for: %02d:%02d:%02d",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	    close(STAT);
 	    if(!$exists) {
 		INT_handler();
@@ -568,12 +569,14 @@ if($mode eq "ncsvc") {
 		my $now = time - $start_t;
 		# printing RX/TX. This packet also contains encription type,
 		# compression and transport info, but length seems to be variable
-		printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-			int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
+		printf("\x{21d1}:%s  \x{21d3}:%s  %02d:%02d:%02d",
+			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)),
+			int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 		sleep(1);
 	}
-
+	
+	my $now = time - $start_t;
+	printf("Runned for: %02d:%02d:%02d",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	print "Exiting... Connect failed?\n";
 	
 	$socket->close();
