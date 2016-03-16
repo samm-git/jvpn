@@ -514,7 +514,7 @@ if ($mode eq "ncui"){
 	    open STAT, "/proc/net/dev" or die $!;
 	    while (<STAT>) {
 	    	    if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
-	    	    	    print "\r                                                              \r";
+	    	    	    print "\r                        \r";
 	    	    	    printf("\x{21d1}:%s  \x{21d3}:%s  %02d:%02d:%02d", 
 	    	    	    	    format_bytes($2), format_bytes($1),
 	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60));
@@ -557,7 +557,7 @@ if($mode eq "ncsvc") {
 	while ( 1 ) {
 		#stat query
 		$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
-		print "\r                                                              \r";
+		print "\r                        \r";
 		hdump($data) if $debug;
 		print $socket "$data";
 		$socket->recv($data,2048);
@@ -627,6 +627,8 @@ sub INT_handler {
 		# xxx - we are ignoring reply
 		hdump($data) if $debug;
 	}
+	my $now = time - $start_t;
+	printf("Runned for: %02d:%02d:%02d\n",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	print "Logging out...\n";
 	# do logout
 	$ua -> get ("https://$dhost:$dport/dana-na/auth/logout.cgi");
