@@ -125,7 +125,7 @@ if (-e "./ncsvc") {
   my $fmode = (stat("./ncsvc"))[2];
   $is_setuid = ($fmode & S_ISUID) && ((stat("./ncsvc"))[4] == 0);
   if(!-x "./ncsvc"){
-    print "./ncsvc is not executable, exiting\n"; 
+    print "./ncsvc is not executable, exiting\n";
     exit 1;
   }
 }
@@ -139,6 +139,9 @@ my $ua = LWP::UserAgent->new;
 # on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
+    if (!$verifycert) {
+      $ua->ssl_opts('SSL_verify_mode' => '0x00');
+    }
 }
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
@@ -225,7 +228,7 @@ sub connect_vpn {
         $password=read_password();
         print "\n";
       }
-      # if password was specified in plaintext we should not use it 
+      # if password was specified in plaintext we should not use it
       # here, it will not work anyway
       elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
         print "To continue, wait for the token code to change and ".
@@ -236,11 +239,11 @@ sub connect_vpn {
       }
       elsif ($cfgpass =~ /^helper:(.+)/) {
         print "Using user-defined script to get second password\n";
-        # set current password to the OLDPIN variable to make 
+        # set current password to the OLDPIN variable to make
         # helper aware that we need a new key
         $ENV{'OLDPIN'}=$password;
         $password=run_pw_helper($1);
-        delete $ENV{'OLDPIN'}; 
+        delete $ENV{'OLDPIN'};
       }
       $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
         [ Enter   => 'secidactionEnter',
@@ -275,7 +278,7 @@ sub connect_vpn {
       }
       # now we got preauth, so lets try to start tncc
       $tncc_pid = tncc_start($res->decoded_content);
-      open NARPORT, $narport_file or die $!; 
+      open NARPORT, $narport_file or die $!;
       my $narport = <NARPORT>;
       chomp $narport;
       close NARPORT;
@@ -397,7 +400,7 @@ sub connect_vpn {
     else {
       $dlast=time();
     }
-    
+
     # do not print DSID in normal mode for security reasons
     print $debug?"Got DSID=$dsid, dfirst=$dfirst, dlast=$dlast\n":"";
 
@@ -407,7 +410,7 @@ sub connect_vpn {
     } else {
       print "Got DSID\n";
     }
-    
+
   }
   else {
     # Error code, type of error, error message
@@ -425,7 +428,7 @@ sub connect_vpn {
   $| = 1;
 
   my $md5hash = '';
-  my $crtfile = ''; 
+  my $crtfile = '';
   my $fh; # should be global or file is unlinked
 
   if($mode eq "ncsvc") {
@@ -542,7 +545,7 @@ sub connect_vpn {
     my $status = sprintf("%02x",$result[7]);
     # 0x6d seems to be "Connect ok" message
     # exit on any other values
-    
+
     if($status ne "6d") {
       printf("Status=$status\nAuthentication failed, exiting\n");
       system("./ncsvc -K");
@@ -590,7 +593,7 @@ sub connect_vpn {
       $ENV{'INTERFACE'}=$vpnint;
       system($script);
     }
-    
+
     for (;;) {
         $exists = kill SIGCHLD, $pid;
         $debug && printf("\nChecking child: exists=$exists, $pid\n");
@@ -600,7 +603,7 @@ sub connect_vpn {
         while (<STAT>) {
               if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
                     print "\r                                                              \r";
-                    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+                    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s",
                           int($now / 3600), int(($now % 3600) / 60), int($now % 60),
                           format_bytes($2), format_bytes($1));
               }
@@ -657,14 +660,14 @@ sub connect_vpn {
       my $now = time - $start_t;
       # printing RX/TX. This packet also contains encription type,
       # compression and transport info, but length seems to be variable
-      printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
+      printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s",
         int($now / 3600), int(($now % 3600) / 60), int($now % 60),
         format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
       sleep(1);
     }
 
     print "Exiting... Connect failed?\n";
-    
+
     $socket->close();
   } # mode ncsvc loop
 }
@@ -684,15 +687,15 @@ sub hdump {
       push(@array, '  ') while $len++ < 16;
       $format="0x%08x (%05d)" .
         "   %s%s%s%s %s%s%s%s %s%s%s%s %s%s%s%s   %s\n";
-      
-    } 
+
+    }
     $data =~ tr/\0-\37\177-\377/./;
     printf $format,$offset,$offset,@array,$data;
     $offset += 16;
   }
 }
 
-# handle ctrl+c to logout and kill ncsvc 
+# handle ctrl+c to logout and kill ncsvc
 sub INT_handler {
   # de-register handlers
   $SIG{'INT'} = 'DEFAULT';
@@ -930,7 +933,7 @@ sub format_bytes
 sub get_tap_interfaces
 {
   my @intlist;
-  open FILE, "/proc/net/dev" or die $!; 
+  open FILE, "/proc/net/dev" or die $!;
   while (my $line = <FILE>){
     if($line =~ /^\s*(tun[0-9]+):/) {
       push(@intlist, $1);
