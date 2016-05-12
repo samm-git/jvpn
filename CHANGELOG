@@ -1,3 +1,6 @@
+*** 0.8.1 (jv)
+ + Support Pulse Secure / Duo Push
+
 *** 0.8.0 (jv)
  + allow multi-session (if enabled server-side)
  # converted README to .md
