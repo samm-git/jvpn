@@ -143,7 +143,6 @@ if( $> != 0 && !$is_setuid) {
 
 my $ua = LWP::UserAgent->new;
 $ua->default_header('Connection' => "keep-alive");
-$ua->default_header('Cookie' => "trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ=EP5SWETBRW7JW7AUXADI");
 # on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
@@ -151,7 +150,11 @@ if(defined &LWP::UserAgent::ssl_opts) {
       $ua->ssl_opts('SSL_verify_mode' => '0x00');
     }
 }
-$ua->cookie_jar({});
+$ua->cookie_jar({
+  file           => "/tmp/jvpn.cookies",
+  autosave       => 1,
+  ignore_discard => 1,
+  });
 
 push @{ $ua->requests_redirectable }, 'POST';
 
@@ -216,10 +219,13 @@ sub connect_vpn {
       username  => $username,
     ]);
 
+  $ua->cookie_jar->extract_cookies( $res );
+
   $response_body=$res->decoded_content;
   my $dsid="";
   my $dlast="";
   my $dfirst="";
+  my $cookie=$ua->cookie_jar->as_string;
 
   # Looking at the results...
   if ($res->is_success) {
@@ -227,6 +233,8 @@ sub connect_vpn {
     # next token request
     if ($duo) {
       print "Initiating Duo.\n";
+      $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "$dhost");
+      $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "api-$duo_api.duosecurity.com");
       my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
       my $init_url="https://api-$duo_api.duosecurity.com/frame/juniper/v2/init?_=" . time . "666&parent=$welcome_cgi";
 
@@ -236,6 +244,7 @@ sub connect_vpn {
         print "Access denied at init. Exiting.\n";
         exit 3;
       }
+      $ua->cookie_jar->extract_cookies( $res );
 
       my ($password2) = $response_body =~ /name="js_cookie" value="([^"]+)"/;
       my ($nonce) = $password2 =~ /INIT&#x7c;([[:alnum:]]*)/;
@@ -243,6 +252,10 @@ sub connect_vpn {
 
       ($debug) && print "\n\n";
       print "Doing initial auth (login.cgi).\n";
+      $ua->cookie_jar->set_cookie(0,"DSLastAccess","0", '/', "$dhost");
+      $ua->cookie_jar->set_cookie(0,"DSSIGNIN",$durl, '/', "$dhost");
+      $ua->cookie_jar->set_cookie(0,"DSSignInURL","/", '/', "$dhost");
+      $ua->cookie_jar->set_cookie(0,"lastRealm",$realm, '/', "$dhost");
       $res = $ua->post("https://$dhost/dana-na/auth/$durl/login.cgi",
         [
           tz_offset => -480,
@@ -259,6 +272,7 @@ sub connect_vpn {
         print "Access denied at initial auth. Exiting.\n";
         exit 4;
       }
+      $ua->cookie_jar->extract_cookies( $res );
 
       ($debug) && print "\n\n";
       print "Proceeding to Duo auth.\n";
@@ -268,8 +282,7 @@ sub connect_vpn {
         print "Access denied at duo auth (get stage). Exiting.\n";
         exit 5;
       }
-
-      exit 99;
+      $ua->cookie_jar->extract_cookies( $res );
 
       ($debug) && print "\n\n";
       $res = $ua->post("https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi",
@@ -288,6 +301,7 @@ sub connect_vpn {
         print "Access denied at duo auth (post stage). Exiting.\n";
         exit 6;
       }
+      $ua->cookie_jar->extract_cookies( $res );
 
       print "OMG, we made it.";
     } elsif ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
