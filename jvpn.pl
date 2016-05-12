@@ -25,6 +25,7 @@ use File::Copy;
 use File::Temp;
 use File::Path;
 use POSIX;
+use URI::Escape;
 
 my %Config;
 my @config_files = ("./jvpn.ini", $ENV{'HOME'}."/.jvpn.ini", "/etc/jvpn/jvpn.ini");
@@ -67,7 +68,11 @@ my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $reconnect=$Config{"reconnect"};
 my $token=$Config{"token"};
+my $duo=$Config{"duo"};
+my $duo_api=$Config{"duo_api"};
 my $tncc_pid = 0;
+
+my $debug_res_maxlength = 0;
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $narport_file = $supportdir."/narport.txt";
@@ -135,7 +140,10 @@ if( $> != 0 && !$is_setuid) {
   exit 1;
 }
 
+
 my $ua = LWP::UserAgent->new;
+$ua->default_header('Connection' => "keep-alive");
+$ua->default_header('Cookie' => "trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ=EP5SWETBRW7JW7AUXADI");
 # on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
@@ -144,6 +152,7 @@ if(defined &LWP::UserAgent::ssl_opts) {
     }
 }
 $ua->cookie_jar({});
+
 push @{ $ua->requests_redirectable }, 'POST';
 
 # if Juniper VPN server finds some 'known to be smart' useragent it will try to
@@ -158,8 +167,8 @@ else {
 }
 # show LWP traffic dump if debug is enabled
 if($debug){
-    $ua->add_handler("request_send",  sub { shift->dump; return });
-    $ua->add_handler("response_done", sub { shift->dump; return });
+    $ua->add_handler("request_send",  sub { shift->dump(maxlength => $debug_res_maxlength); return });
+    $ua->add_handler("response_done", sub { shift->dump(maxlength => $debug_res_maxlength); return });
 }
 
 if (!defined($username) || $username eq "" || $username eq "interactive") {
@@ -199,11 +208,12 @@ sub connect_vpn {
   }
 
   my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-    [ btnSubmit   => 'Sign In',
-    password  => $password,
-    realm => $realm,
-    tz   => '60',
-    username  => $username,
+    [
+      btnSubmit => 'Sign In',
+      password  => $password,
+      realm     => $realm,
+      tz        => '60',
+      username  => $username,
     ]);
 
   $response_body=$res->decoded_content;
@@ -215,7 +225,72 @@ sub connect_vpn {
   if ($res->is_success) {
     print("Initial connection successful\n");
     # next token request
-    if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
+    if ($duo) {
+      print "Initiating Duo.\n";
+      my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
+      my $init_url="https://api-$duo_api.duosecurity.com/frame/juniper/v2/init?_=" . time . "666&parent=$welcome_cgi";
+
+      $res = $ua->get($init_url, Referer => $welcome_cgi);
+      $response_body=$res->decoded_content;
+      if ( $response_body =~ /Access denied./){
+        print "Access denied at init. Exiting.\n";
+        exit 3;
+      }
+
+      my ($password2) = $response_body =~ /name="js_cookie" value="([^"]+)"/;
+      my ($nonce) = $password2 =~ /INIT&#x7c;([[:alnum:]]*)/;
+      my $auth_url = "https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi";
+
+      ($debug) && print "\n\n";
+      print "Doing initial auth (login.cgi).\n";
+      $res = $ua->post("https://$dhost/dana-na/auth/$durl/login.cgi",
+        [
+          tz_offset => -480,
+          username => $username,
+          password => $password,
+          'password#2' => $password2,
+          realm => $realm,
+          btnSubmit => 'Sign In',
+        ],
+        Referer => $welcome_cgi,
+        );
+      $response_body=$res->decoded_content;
+      if ( $response_body =~ /Invalid primary/){
+        print "Access denied at initial auth. Exiting.\n";
+        exit 4;
+      }
+
+      ($debug) && print "\n\n";
+      print "Proceeding to Duo auth.\n";
+      $res = $ua->get($auth_url, Referer => $welcome_cgi);
+      $response_body=$res->decoded_content;
+      if ( $response_body =~ /Access denied./){
+        print "Access denied at duo auth (get stage). Exiting.\n";
+        exit 5;
+      }
+
+      exit 99;
+
+      ($debug) && print "\n\n";
+      $res = $ua->post("https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi",
+        [
+          parent => $welcome_cgi,
+          java_version => "1.7.0.50",
+          flash_version => "11.2.202.616",
+          screen_resolution_width => 1080,
+          screen_resolution_height => 1920,
+          color_depth => 24,
+        ],
+        Referer => $auth_url,
+        );
+      $response_body=$res->decoded_content;
+      if ( $response_body =~ /Access denied./){
+        print "Access denied at duo auth (post stage). Exiting.\n";
+        exit 6;
+      }
+
+      print "OMG, we made it.";
+    } elsif ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
       $response_body =~ m/name="key" value="([^"]+)"/;
       my $key=$1;
       print  "The server requires that you enter an additional token ".
@@ -246,9 +321,10 @@ sub connect_vpn {
         delete $ENV{'OLDPIN'};
       }
       $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-        [ Enter   => 'secidactionEnter',
-        password  => $password,
-        key  => $key,
+        [
+          Enter    => 'secidactionEnter',
+          password => $password,
+          key      => $key,
         ]);
       $response_body=$res->decoded_content;
     }
@@ -340,9 +416,10 @@ sub connect_vpn {
               print "Session_id being killed: $session_id from IP $ip\n";
               $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
               $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-                [ btnContinue => $cont_button,
-                postfixSID    => $session_id,
-                FormDataStr   => $formdatastr,
+                [
+                  btnContinue => $cont_button,
+                  postfixSID  => $session_id,
+                  FormDataStr => $formdatastr,
                 ]);
             } else {
               print "Sorry, didn't find a connected '$kick_string' agent. We have:\n";
@@ -370,15 +447,17 @@ sub connect_vpn {
           $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
           print "Active sessions found, continuing anyway...\n";
           $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-            [ btnContinue   => $cont_button,
-            FormDataStr  => $formdatastr,
+            [
+              btnContinue => $cont_button,
+              FormDataStr => $formdatastr,
             ]);
         }
       } else {
         print "Active sessions found, reconnecting...\n";
         $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-          [ btnContinue   => 'Continue the session',
-          FormDataStr  => $formdatastr,
+          [
+            btnContinue => 'Continue the session',
+            FormDataStr => $formdatastr,
           ]);
       }
       $response_body=$res->decoded_content;
