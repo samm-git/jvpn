@@ -143,6 +143,7 @@ if( $> != 0 && !$is_setuid) {
 
 my $ua = LWP::UserAgent->new;
 $ua->default_header('Connection' => "keep-alive");
+$ua->default_header('Accept' => "*/*");
 # on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
@@ -210,14 +211,24 @@ sub connect_vpn {
     print "\n";
   }
 
+  my $password2 = '';
+  if ($duo == 1) {
+    print "Enter Duo key: ";
+    $password2 = read_input();
+  }
+
+  my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
   my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
     [
-      btnSubmit => 'Sign In',
+      btnSubmit => 'Sign+In',
       password  => $password,
+      'password#2'  => $password2,
       realm     => $realm,
-      tz        => '60',
+      tz        => '-480',
       username  => $username,
-    ]);
+    ],
+    Referer => $welcome_cgi,
+    );
 
   $ua->cookie_jar->extract_cookies( $res );
 
@@ -226,18 +237,22 @@ sub connect_vpn {
   my $dlast="";
   my $dfirst="";
   my $cookie=$ua->cookie_jar->as_string;
+  if ( $response_body =~ /Invalid primary/){
+    print "Access denied. Exiting.\n";
+    exit 4;
+  }
 
   # Looking at the results...
   if ($res->is_success) {
     print("Initial connection successful\n");
     # next token request
-    if ($duo) {
-      print "Initiating Duo.\n";
+    if ($duo == "push") {
+      print "Initiating Duo Push.\n";
       $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "$dhost");
       $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "api-$duo_api.duosecurity.com");
-      my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
       my $init_url="https://api-$duo_api.duosecurity.com/frame/juniper/v2/init?_=" . time . "666&parent=$welcome_cgi";
 
+      ($debug) && print "GETting \$init_url:\n";
       $res = $ua->get($init_url, Referer => $welcome_cgi);
       $response_body=$res->decoded_content;
       if ( $response_body =~ /Access denied./){
@@ -251,8 +266,8 @@ sub connect_vpn {
       my $auth_url = "https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi";
 
       ($debug) && print "\n\n";
-      print "Doing initial auth (login.cgi).\n";
-      $ua->cookie_jar->set_cookie(0,"DSLastAccess","0", '/', "$dhost");
+      ($debug) && print "Doing initial auth (login.cgi).\n";
+      $ua->cookie_jar->set_cookie(0,"DSLastAccess","1462997177", '/', "$dhost");
       $ua->cookie_jar->set_cookie(0,"DSSIGNIN",$durl, '/', "$dhost");
       $ua->cookie_jar->set_cookie(0,"DSSignInURL","/", '/', "$dhost");
       $ua->cookie_jar->set_cookie(0,"lastRealm",$realm, '/', "$dhost");
@@ -263,7 +278,7 @@ sub connect_vpn {
           password => $password,
           'password#2' => $password2,
           realm => $realm,
-          btnSubmit => 'Sign In',
+          btnSubmit => 'Sign+In',
         ],
         Referer => $welcome_cgi,
         );
@@ -274,8 +289,10 @@ sub connect_vpn {
       }
       $ua->cookie_jar->extract_cookies( $res );
 
-      ($debug) && print "\n\n";
+      ($debug) && print "\n";
       print "Proceeding to Duo auth.\n";
+
+      ($debug) && print "\nFetching \$auth_url (get):\n";
       $res = $ua->get($auth_url, Referer => $welcome_cgi);
       $response_body=$res->decoded_content;
       if ( $response_body =~ /Access denied./){
@@ -285,7 +302,8 @@ sub connect_vpn {
       $ua->cookie_jar->extract_cookies( $res );
 
       ($debug) && print "\n\n";
-      $res = $ua->post("https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi",
+      ($debug) && print "\nFetching \$auth_url (post):\n";
+      $res = $ua->post($auth_url,
         [
           parent => $welcome_cgi,
           java_version => "1.7.0.50",
