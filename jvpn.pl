@@ -69,7 +69,6 @@ my $hostchecker=$Config{"hostchecker"};
 my $reconnect=$Config{"reconnect"};
 my $token=$Config{"token"};
 my $duo=$Config{"duo"};
-my $duo_api=$Config{"duo_api"};
 my $tncc_pid = 0;
 
 my $debug_res_maxlength = 0;
@@ -139,7 +138,6 @@ if( $> != 0 && !$is_setuid) {
   print "Please, run this script with su/sudo or set suid attribute on $mode \n";
   exit 1;
 }
-
 
 my $ua = LWP::UserAgent->new;
 # on RHEL6+ ssl_opts does exist
