@@ -67,9 +67,13 @@ my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $reconnect=$Config{"reconnect"};
 my $token=$Config{"token"};
+my $duo=$Config{"duo"};
 my $tncc_pid = 0;
 
+my $debug_res_maxlength = 0;
+
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
+my $pulse_nc_dir = $ENV{"HOME"}."/.pulse_secure/network_connect";
 my $narport_file = $supportdir."/narport.txt";
 
 my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
@@ -144,6 +148,7 @@ if(defined &LWP::UserAgent::ssl_opts) {
     }
 }
 $ua->cookie_jar({});
+
 push @{ $ua->requests_redirectable }, 'POST';
 
 # if Juniper VPN server finds some 'known to be smart' useragent it will try to
@@ -158,8 +163,8 @@ else {
 }
 # show LWP traffic dump if debug is enabled
 if($debug){
-    $ua->add_handler("request_send",  sub { shift->dump; return });
-    $ua->add_handler("response_done", sub { shift->dump; return });
+    $ua->add_handler("request_send",  sub { shift->dump(maxlength => $debug_res_maxlength); return });
+    $ua->add_handler("response_done", sub { shift->dump(maxlength => $debug_res_maxlength); return });
 }
 
 if (!defined($username) || $username eq "" || $username eq "interactive") {
@@ -198,18 +203,39 @@ sub connect_vpn {
     print "\n";
   }
 
+  my $password2 = '';
+  if ($duo eq "push") {
+    $password2 = "push";
+    (! -d $pulse_nc_dir) && mkdir -p $pulse_nc_dir;
+  } elsif ($duo eq "key") {
+    print "Enter Duo key: ";
+    $password2 = read_input();
+    (! -d $pulse_nc_dir) && mkdir -p $pulse_nc_dir;
+  }
+
+  my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
   my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-    [ btnSubmit   => 'Sign In',
-    password  => $password,
-    realm => $realm,
-    tz   => '60',
-    username  => $username,
-    ]);
+    [
+      btnSubmit => 'Sign+In',
+      password  => $password,
+      'password#2'  => $password2,
+      realm     => $realm,
+      tz        => '-480',
+      username  => $username,
+    ],
+    Referer => $welcome_cgi,
+    );
+
+  $ua->cookie_jar->extract_cookies( $res );
 
   $response_body=$res->decoded_content;
   my $dsid="";
   my $dlast="";
   my $dfirst="";
+  if ( $response_body =~ /Invalid primary/){
+    print "Access denied. Wrong password? Exiting.\n";
+    exit 4;
+  }
 
   # Looking at the results...
   if ($res->is_success) {
@@ -246,9 +272,10 @@ sub connect_vpn {
         delete $ENV{'OLDPIN'};
       }
       $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-        [ Enter   => 'secidactionEnter',
-        password  => $password,
-        key  => $key,
+        [
+          Enter    => 'secidactionEnter',
+          password => $password,
+          key      => $key,
         ]);
       $response_body=$res->decoded_content;
     }
@@ -340,9 +367,10 @@ sub connect_vpn {
               print "Session_id being killed: $session_id from IP $ip\n";
               $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
               $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-                [ btnContinue => $cont_button,
-                postfixSID    => $session_id,
-                FormDataStr   => $formdatastr,
+                [
+                  btnContinue => $cont_button,
+                  postfixSID  => $session_id,
+                  FormDataStr => $formdatastr,
                 ]);
             } else {
               print "Sorry, didn't find a connected '$kick_string' agent. We have:\n";
@@ -370,15 +398,17 @@ sub connect_vpn {
           $cont_button =~ m/name="btnContinue" value="([^"]+)"/;
           print "Active sessions found, continuing anyway...\n";
           $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-            [ btnContinue   => $cont_button,
-            FormDataStr  => $formdatastr,
+            [
+              btnContinue => $cont_button,
+              FormDataStr => $formdatastr,
             ]);
         }
       } else {
         print "Active sessions found, reconnecting...\n";
         $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-          [ btnContinue   => 'Continue the session',
-          FormDataStr  => $formdatastr,
+          [
+            btnContinue => 'Continue the session',
+            FormDataStr => $formdatastr,
           ]);
       }
       $response_body=$res->decoded_content;
