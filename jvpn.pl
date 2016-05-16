@@ -74,6 +74,7 @@ my $tncc_pid = 0;
 my $debug_res_maxlength = 0;
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
+my $pulse_nc_dir = $ENV{"HOME"}."/.pulse_secure/network_connect";
 my $narport_file = $supportdir."/narport.txt";
 
 my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
@@ -206,9 +207,11 @@ sub connect_vpn {
   my $password2 = '';
   if ($duo eq "push") {
     $password2 = "push";
+    (! -d $pulse_nc_dir) && mkdir -p $pulse_nc_dir;
   } elsif ($duo eq "key") {
     print "Enter Duo key: ";
     $password2 = read_input();
+    (! -d $pulse_nc_dir) && mkdir -p $pulse_nc_dir;
   }
 
   my $welcome_cgi="https://$dhost/dana-na/auth/$durl/welcome.cgi";
