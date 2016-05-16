@@ -206,9 +206,9 @@ sub connect_vpn {
   }
 
   my $password2 = '';
-  if ($duo == "push") {
+  if ($duo eq "push") {
     $password2 = "push";
-  } elsif ($duo == "key") {
+  } elsif ($duo eq "key") {
     print "Enter Duo key: ";
     $password2 = read_input();
   }
@@ -232,7 +232,6 @@ sub connect_vpn {
   my $dsid="";
   my $dlast="";
   my $dfirst="";
-  my $cookie=$ua->cookie_jar->as_string;
   if ( $response_body =~ /Invalid primary/){
     print "Access denied. Exiting.\n";
     exit 4;
