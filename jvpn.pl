@@ -142,8 +142,6 @@ if( $> != 0 && !$is_setuid) {
 
 
 my $ua = LWP::UserAgent->new;
-$ua->default_header('Connection' => "keep-alive");
-$ua->default_header('Accept' => "*/*");
 # on RHEL6+ ssl_opts does exist
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('verify_hostname' => $verifycert);
@@ -151,11 +149,7 @@ if(defined &LWP::UserAgent::ssl_opts) {
       $ua->ssl_opts('SSL_verify_mode' => '0x00');
     }
 }
-$ua->cookie_jar({
-  file           => "/tmp/jvpn.cookies",
-  autosave       => 1,
-  ignore_discard => 1,
-  });
+$ua->cookie_jar({});
 
 push @{ $ua->requests_redirectable }, 'POST';
 
@@ -212,7 +206,9 @@ sub connect_vpn {
   }
 
   my $password2 = '';
-  if ($duo == 1) {
+  if ($duo == "push") {
+    $password2 = "push";
+  } elsif ($duo == "key") {
     print "Enter Duo key: ";
     $password2 = read_input();
   }
@@ -246,83 +242,7 @@ sub connect_vpn {
   if ($res->is_success) {
     print("Initial connection successful\n");
     # next token request
-    if ($duo == "push") {
-      print "Initiating Duo Push.\n";
-      $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "$dhost");
-      $ua->cookie_jar->set_cookie(0,"trc|DU281X22MRVN7R9WL748|DAI8IRLKCKP276KYS1IJ","EP5SWETBRW7JW7AUXADI", '/', "api-$duo_api.duosecurity.com");
-      my $init_url="https://api-$duo_api.duosecurity.com/frame/juniper/v2/init?_=" . time . "666&parent=$welcome_cgi";
-
-      ($debug) && print "GETting \$init_url:\n";
-      $res = $ua->get($init_url, Referer => $welcome_cgi);
-      $response_body=$res->decoded_content;
-      if ( $response_body =~ /Access denied./){
-        print "Access denied at init. Exiting.\n";
-        exit 3;
-      }
-      $ua->cookie_jar->extract_cookies( $res );
-
-      my ($password2) = $response_body =~ /name="js_cookie" value="([^"]+)"/;
-      my ($nonce) = $password2 =~ /INIT&#x7c;([[:alnum:]]*)/;
-      my $auth_url = "https://api-$duo_api.duosecurity.com/frame/juniper/v2/auth?user=$username&nonce=$nonce&parent=$welcome_cgi";
-
-      ($debug) && print "\n\n";
-      ($debug) && print "Doing initial auth (login.cgi).\n";
-      $ua->cookie_jar->set_cookie(0,"DSLastAccess","1462997177", '/', "$dhost");
-      $ua->cookie_jar->set_cookie(0,"DSSIGNIN",$durl, '/', "$dhost");
-      $ua->cookie_jar->set_cookie(0,"DSSignInURL","/", '/', "$dhost");
-      $ua->cookie_jar->set_cookie(0,"lastRealm",$realm, '/', "$dhost");
-      $res = $ua->post("https://$dhost/dana-na/auth/$durl/login.cgi",
-        [
-          tz_offset => -480,
-          username => $username,
-          password => $password,
-          'password#2' => $password2,
-          realm => $realm,
-          btnSubmit => 'Sign+In',
-        ],
-        Referer => $welcome_cgi,
-        );
-      $response_body=$res->decoded_content;
-      if ( $response_body =~ /Invalid primary/){
-        print "Access denied at initial auth. Exiting.\n";
-        exit 4;
-      }
-      $ua->cookie_jar->extract_cookies( $res );
-
-      ($debug) && print "\n";
-      print "Proceeding to Duo auth.\n";
-
-      ($debug) && print "\nFetching \$auth_url (get):\n";
-      $res = $ua->get($auth_url, Referer => $welcome_cgi);
-      $response_body=$res->decoded_content;
-      if ( $response_body =~ /Access denied./){
-        print "Access denied at duo auth (get stage). Exiting.\n";
-        exit 5;
-      }
-      $ua->cookie_jar->extract_cookies( $res );
-
-      ($debug) && print "\n\n";
-      ($debug) && print "\nFetching \$auth_url (post):\n";
-      $res = $ua->post($auth_url,
-        [
-          parent => $welcome_cgi,
-          java_version => "1.7.0.50",
-          flash_version => "11.2.202.616",
-          screen_resolution_width => 1080,
-          screen_resolution_height => 1920,
-          color_depth => 24,
-        ],
-        Referer => $auth_url,
-        );
-      $response_body=$res->decoded_content;
-      if ( $response_body =~ /Access denied./){
-        print "Access denied at duo auth (post stage). Exiting.\n";
-        exit 6;
-      }
-      $ua->cookie_jar->extract_cookies( $res );
-
-      print "OMG, we made it.";
-    } elsif ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
+    if ($response_body =~ /name="frmDefender"/ || $response_body =~ /name="frmNextToken"/) {
       $response_body =~ m/name="key" value="([^"]+)"/;
       my $key=$1;
       print  "The server requires that you enter an additional token ".
