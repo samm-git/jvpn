@@ -233,7 +233,7 @@ sub connect_vpn {
   my $dlast="";
   my $dfirst="";
   if ( $response_body =~ /Invalid primary/){
-    print "Access denied. Exiting.\n";
+    print "Access denied. Wrong password? Exiting.\n";
     exit 4;
   }
 
