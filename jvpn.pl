@@ -535,7 +535,7 @@ sub connect_vpn {
     hdump($data) if $debug;
     print $socket "$data";
     $socket->recv($data,2048);
-    # XXX - good idea to chek if it valid
+    # XXX - good idea to check if it valid
     print " [done]\n";
     hdump($data) if $debug;
 
@@ -550,7 +550,7 @@ sub connect_vpn {
     hdump($data) if $debug;
     print $socket "$data";
     $socket->recv($data,2048);
-    # XXX - good idea to chek if it is valid
+    # XXX - good idea to check if it is valid
     print " [done]\n";
     hdump($data) if $debug;
     my $dsidline="DSSignInURL=/; DSID=$dsid; DSFirstAccess=$dfirst; DSLastAccess=$dlast; path=/; secure";
@@ -777,6 +777,7 @@ sub INT_handler {
     $ENV{'MODE'}=$mode;
     system($script);
   }
+  print "Disconnected at ". POSIX::strftime("%c", localtime) .".\n";
   print "Exiting\n";
   exit(0);
 }
