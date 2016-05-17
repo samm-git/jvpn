@@ -14,16 +14,16 @@
 
 use strict;
 use warnings;
-use Term::ReadKey;
-use IO::Socket::INET;
 use Fcntl ':mode';
-use Getopt::Long;
-use HTTP::Request::Common;
-use LWP::UserAgent;
-use HTTP::Cookies;
 use File::Copy;
-use File::Temp;
 use File::Path;
+use File::Temp;
+use Getopt::Long;
+use HTTP::Cookies;
+use HTTP::Request::Common;
+use IO::Socket::INET;
+use LWP::UserAgent;
+use Term::ReadKey;
 use POSIX;
 
 my %Config;
@@ -573,10 +573,16 @@ sub connect_vpn {
     # checking reply status
     my @result = unpack('C*',$data);
     my $status = sprintf("%02x",$result[7]);
+
     # 0x6d seems to be "Connect ok" message
+    # 0x6e seems to be "Connection expired" message
     # exit on any other values
 
-    if($status ne "6d") {
+    if(($status eq "6e") && ($reconnect == 1)) {
+      printf("Status=$status\nDisconnected at ". POSIX::strftime("%c", localtime) ."\nReconnecting.\n");
+      connect_vpn();
+    }
+    elsif($status ne "6d") {
       printf("Status=$status\nAuthentication failed, exiting\n");
       system("./ncsvc -K");
       exit(1);
@@ -668,7 +674,7 @@ sub connect_vpn {
       " Gateway: ".inet_ntoa(pack("N",unpack('x[68]N',$data))).
       "\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
       "  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
-      "\nConnected to $dhost, press CTRL+C to exit\n";
+      "\nConnected to $dhost at ". POSIX::strftime("%c", localtime) .".\nPress CTRL+C to exit.\n";
     # disabling cursor
     print "\e[?25l";
     while ( 1 ) {
