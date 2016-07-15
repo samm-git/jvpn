@@ -66,11 +66,15 @@ my $workdir=$Config{"workdir"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $reconnect=$Config{"reconnect"};
+my $recontc=$Config{"recontimeoutcount"};
+my $recontt=$Config{"recontimeouttimeout"};
 my $token=$Config{"token"};
 my $duo=$Config{"duo"};
 my $tncc_pid = 0;
 
 my $debug_res_maxlength = 0;
+
+my ($recontry, $reconstart) if ($reconnect);
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $pulse_nc_dir = $ENV{"HOME"}."/.pulse_secure/network_connect";
@@ -114,6 +118,10 @@ $durl = "url_default" if (!defined($durl));
 
 # set user_agent if needed
 $user_agent = "JVPN/$sysname" if (!defined($user_agent));
+
+# set recon timeout params, if needed
+$recontc = 5 if (!defined($recontc));
+$recontt = 10 if (!defined($recontt));
 
 # set kick_string if needed
 if (defined($p_kick_string)) { ## command line parameter wins
@@ -386,9 +394,7 @@ sub connect_vpn {
             }
           } else {
             if ($reconnect) {
-              print "Reconnecting.\n";
-              sleep 5;
-              connect_vpn();
+              reconnect_vpn();
             } else {
               print "Exiting.\n";
               exit 1;
@@ -576,11 +582,12 @@ sub connect_vpn {
 
     # 0x6d seems to be "Connect ok" message
     # 0x6e seems to be "Connection expired" message
+    #   which also happens if you kick an existing connection
     # exit on any other values
 
     if(($status eq "6e") && ($reconnect == 1)) {
-      printf("Status=$status\nDisconnected at ". POSIX::strftime("%c", localtime) ."\nReconnecting.\n");
-      connect_vpn();
+      printf("Status=$status\nDisconnected at ". POSIX::strftime("%c", localtime) ."\n");
+      reconnect_vpn();
     }
     elsif($status ne "6d") {
       printf("Status=$status\nAuthentication failed, exiting\n");
@@ -706,6 +713,26 @@ sub connect_vpn {
 
     $socket->close();
   } # mode ncsvc loop
+}
+
+sub reconnect_vpn{
+  $recontry = 0 if (!defined($recontry));
+  my $reconnow = int time / 60;
+  $reconstart = int time / 60 if (!defined($reconstart) or $reconnow - $reconstart gt 30);
+
+  if ($recontry =~ /^\d+$/ and $recontry ge $recontc and
+    $reconstart =~ /^\d+$/ and (time/60)-$reconstart ge $recontt)
+  {
+    print "Too many reconnection attempts within timeout period.  Exiting.";
+    exit 1;
+  }
+  print "Reconnecting.\n";
+  $recontry++;
+  print "Reconnection attempt #$recontry\n";
+  my $recontimesofar = int $reconnow - $reconstart;
+  print "Reconnection timeout counter: $recontimesofar of $recontt minutes elapsed\n";
+  sleep 5;
+  connect_vpn();
 }
 
 # for debugging
