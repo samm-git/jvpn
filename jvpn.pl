@@ -75,6 +75,7 @@ my $tncc_pid = 0;
 my $debug_res_maxlength = 0;
 
 my ($recontry, $reconstart) if ($reconnect);
+my reconresettime = 2 * $recontt if ($reconnect);
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $pulse_nc_dir = $ENV{"HOME"}."/.pulse_secure/network_connect";
@@ -716,12 +717,12 @@ sub connect_vpn {
 }
 
 sub reconnect_vpn{
-  $recontry = 0 if (!defined($recontry));
   my $reconnow = int time / 60;
-  $reconstart = int time / 60 if (!defined($reconstart) or $reconnow - $reconstart gt 30);
+  $recontry = 0 if (!defined($recontry) or $reconnow - $reconstart gt $reconresettime);
+  $reconstart = int time / 60 if (!defined($reconstart) or $reconnow - $reconstart gt $reconresettime);
 
   if ($recontry =~ /^\d+$/ and $recontry ge $recontc and
-    $reconstart =~ /^\d+$/ and (time/60)-$reconstart ge $recontt)
+    $reconstart =~ /^\d+$/ and $reconnow-$reconstart ge $recontt)
   {
     print "Too many reconnection attempts within timeout period.  Exiting.";
     exit 1;
