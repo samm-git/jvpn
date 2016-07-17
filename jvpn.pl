@@ -75,7 +75,7 @@ my $tncc_pid = 0;
 my $debug_res_maxlength = 0;
 
 my ($recontry, $reconstart) if ($reconnect);
-my reconresettime = 2 * $recontt if ($reconnect);
+my $reconresettime = 2 * $recontt if ($reconnect);
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $pulse_nc_dir = $ENV{"HOME"}."/.pulse_secure/network_connect";
