@@ -1,10 +1,11 @@
 jvpn
 ====
-Connect to Juniper Junos Pulse / Pulse Secure VPN on the command line without Java
+Connect to Juniper Junos Pulse / Pulse Secure VPN (including Duo support) on the command line without Java
 
 ## Features
  * Works *without Java* on both x86 and x86_64 hosts
  * Emulates web browser to get authentication data
+ * Supports Duo push two-factor authentication
  * Automatically starts juniper client and passes data to it using TCP socket
     connection.
  * Able to download Linux client from the VPN server without browser or
@@ -34,7 +35,7 @@ To configure jvpn.pl, edit jvpn.ini.
 
 The first run of jvpn.pl (under sudo) will download and install the client automatically.
 
-If you want to run it without sudo - set the suid bit on the "ncsvc" binary (chmod u+s ncsvc).
+If you want to run it without sudo - set the suid bit on the "ncsvc" binary (`chmod u+s ncsvc`).
 
 If you have multiple configurations - use the --conf switch to define ini file.
 
