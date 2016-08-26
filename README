@@ -46,7 +46,7 @@ Difference between mode=ncui and mode=ncsvc
 By default jvpn work in the ncsvc mode. This could be changed in jvpn.ini using
 "mode" configuration setting. In ncsvc (default) mode jvpn establishing TCP 
 socket to nvsvc daemon and trying to establish connection using it protocol.
-In "ncui" mode jvpn tryin to use main() function libncui.so which later calling
+In "ncui" mode jvpn trying to use main() function libncui.so which later calling
 ncsvc. If default mode does not work for you i am recommending to try "ncui"
 mode. Please note that to use ncui mode you should have gcc installed.
 
