@@ -55,8 +55,10 @@ my $verifycert=$Config{"verifycert"};
 my $mode=$Config{"mode"};
 my $script=$Config{"script"};
 my $cfgpass=$Config{"password"};
+my $cfgtoken=$Config{"token"};
 my $workdir=$Config{"workdir"};
 my $password="";
+my $password2="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
 
@@ -109,11 +111,41 @@ if( $> != 0 && !$is_setuid) {
 	exit 1;
 }
 
+
+if (!defined($username) || $username eq "" || $username eq "interactive") {
+        print "Enter username: ";
+        $username=read_input();
+        print "\n";
+}
+
+if ($cfgpass eq "interactive") {
+        print "Enter Password: ";
+        $password=read_input("password");
+        print "\n";
+}
+elsif ($cfgpass =~ /^plaintext:(.+)/) {
+        print "Using user-defined password\n";
+        $password=$1;
+        chomp($password);
+}
+elsif ($cfgpass =~ /^helper:(.+)/) {
+        print "Using user-defined script to get the password\n";
+        $password=run_pw_helper($1);
+}
+
+if ($cfgtoken eq "interactive") {
+        print "Enter PIN+Tokencode: ";
+        $password2=read_input("password");
+        print "\n";
+}
+
+
 my $ua = LWP::UserAgent->new;
 # on RHEL6 ssl_opts is not exists
 if(defined &LWP::UserAgent::ssl_opts) {
     $ua->ssl_opts('SSL_verify_mode' => IO::Socket::SSL::SSL_VERIFY_NONE);
     $ua->ssl_opts('verify_hostname' => $verifycert);
+    $ua->ssl_opts('SSL_verify_mode' => $verifycert);
 }
 $ua->cookie_jar({});
 push @{ $ua->requests_redirectable }, 'POST';
@@ -134,36 +166,26 @@ if($debug){
     $ua->add_handler("response_done", sub { shift->dump; return });
 }
 
-if (!defined($username) || $username eq "" || $username eq "interactive") {
-	print "Enter username: ";
-	$username=read_input();
-	print "\n";
-}
-
-if ($cfgpass eq "interactive") {
-	print "Enter PIN+password: ";
-	$password=read_input("password");
-	print "\n";
-}
-elsif ($cfgpass =~ /^plaintext:(.+)/) {
-	print "Using user-defined password\n";
-	$password=$1;
-	chomp($password);
-}
-elsif ($cfgpass =~ /^helper:(.+)/) {
-	print "Using user-defined script to get the password\n";
-	$password=run_pw_helper($1);
-}
-
 my $response_body = '';
-
-my $res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-	[ btnSubmit   => 'Sign In',
-	password  => $password,
-	realm => $realm,
-	tz   => '60',
-	username  => $username,
-	]);
+my $res;
+if ($cfgtoken eq "interactive") {
+	$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		[ btnSubmit   => 'Sign In',
+		password  => $password,
+	        "password#2" => $password2,
+		realm => $realm,
+		tz   => '60',
+		username  => $username,
+		]);
+} else {
+	$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
+		[ btnSubmit   => 'Sign In',
+		password  => $password,
+		realm => $realm,
+		tz   => '60',
+		username  => $username,
+		]);
+}
 
 $response_body=$res->decoded_content;
 my $dsid="";
@@ -285,11 +307,13 @@ if ($res->is_success) {
 	}
 	# active sessions found
 	if ($response_body =~ /id="DSIDConfirmForm"/) {
-		$response_body =~ m/name="FormDataStr" value="([^"]+)"/;
+		my $formDataStr = $1 if ($response_body =~ m/FormDataStr" value="([^"]+)/);
+                my $postfixSid = $1 if ($response_body =~ m/postfixSID" value="([^"]+)"/);
 		print "Active sessions found, reconnecting...\n";
 		$res = $ua->post("https://$dhost:$dport/dana-na/auth/$durl/login.cgi",
-			[ btnContinue   => 'Continue the session',
-			FormDataStr  => $1,
+			[ btnContinue   => 'Close Selected Sessions and Log in',
+			FormDataStr  => $formDataStr,
+                        PostfixSID   => $postfixSid,
 			]);
 		$response_body=$res->decoded_content;
 	}
