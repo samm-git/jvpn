@@ -59,6 +59,8 @@ my $workdir=$Config{"workdir"};
 my $password="";
 my $hostchecker=$Config{"hostchecker"};
 my $tncc_pid = 0;
+my $post_script_connect=$Config{"post_script_connect"};
+my $post_script_disconnect=$Config{"post_script_disconnect"};
 
 my $supportdir = $ENV{"HOME"}."/.juniper_networks";
 my $narport_file = $supportdir."/narport.txt";
@@ -501,6 +503,11 @@ if ($mode eq "ncui"){
 		$ENV{'INTERFACE'}=$vpnint;
 		system($script);
 	}
+
+        if(defined $post_script_connect && $post_script_connect ne "") {
+                print "Running post script: $post_script_connect\n\n";
+                system("$post_script_connect >/dev/null 2>/dev/null &");
+        }
 	
 	for (;;) {
 	    $exists = kill SIGCHLD, $pid;
@@ -522,6 +529,11 @@ if ($mode eq "ncui"){
 	    }
 	    sleep 2;
 	}
+
+        if(defined $post_script_disconnect && $post_script_disconnect ne "") {
+                print "Running post script: $post_script_disconnect\n\n";
+                system("$post_script_disconnect >/dev/null 2>/dev/null &");
+        }
 }
 
 if($mode eq "ncsvc") {
@@ -547,6 +559,12 @@ if($mode eq "ncsvc") {
 		"\nDNS1: ".inet_ntoa(pack("N",unpack('x[84]N',$data))).
 		"  DNS2: ".inet_ntoa(pack("N",unpack('x[94]N',$data))).
 		"\nConnected to $dhost, press CTRL+C to exit\n";
+
+        if(defined $post_script_connect && $post_script_connect ne "") {
+                print "Running post script: $post_script_connect\n\n";
+                system("$post_script_connect >/dev/null 2>/dev/null &");
+        }
+
 	# disabling cursor
 	print "\e[?25l";
 	while ( 1 ) {
@@ -573,6 +591,11 @@ if($mode eq "ncsvc") {
 	print "Exiting... Connect failed?\n";
 	
 	$socket->close();
+	
+	if(defined $post_script_disconnect && $post_script_disconnect ne "") {
+                print "Running post script: $post_script_disconnect\n\n";
+                system("$post_script_disconnect >/dev/null 2>/dev/null &");
+        }
 } # mode ncsvc loop
 
 # for debugging
@@ -644,6 +667,12 @@ sub INT_handler {
 		$ENV{'MODE'}=$mode;
 		system($script);
 	}
+
+        if(defined $post_script_disconnect && $post_script_disconnect ne "") {
+                print "Running post script: $post_script_disconnect\n\n";
+                system("$post_script_disconnect >/dev/null 2>/dev/null &");
+        }
+
 	print "Exiting\n";
 	exit(0);
 }
