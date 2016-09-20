@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if [ "$(id -u)" != "0" ]; then
+  exec sudo -E $0
+fi
+
+DOMAIN=your.domain
+
+if [ "${EVENT}" = "up" ]; then
+    if [ -f /etc/jnpr-nc-resolv.conf ]
+    then
+        echo Restoring original resolv.conf
+
+        # Copy original DNS settings back.
+        rm /etc/resolv.conf
+        ln -s /etc/resolvconf/run/resolv.conf /etc/resolv.conf
+        echo Configure DNS using /sbin/resolvconf
+		cat <<EOF | sudo /sbin/resolvconf -a jnpr
+		nameserver $DNS1
+		nameserver $DNS2
+		search $DOMAIN
+EOF
+    fi
+    exit 0
+fi
+
+if [ "${EVENT}" = "down" ]; then
+	echo Destroying jnpr DNS config
+	/sbin/resolvconf -d jnpr
+    exit 0
+fi
+
+echo Unknown command
