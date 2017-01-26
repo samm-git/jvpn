@@ -124,6 +124,8 @@ if ($hostchecker) {
     $ua->agent('Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0');
     # emulate javascript java check result
     $ua->cookie_jar->set_cookie(0,"DSCheckBrowser","java","/",$dhost,$dport,1,1,60*5,0, ());
+    $ua->cookie_jar->set_cookie(0,"DSSigninNotif","1","/",$dhost,$dport,1,1,60*5,0, ());
+    $ua->cookie_jar->set_cookie(0,"path","/","/",$dhost,$dport,1,1,60*5,0, ());
 }
 else {
     $ua->agent('JVPN/Linux');
@@ -271,6 +273,7 @@ if ($res->is_success) {
 		}
 		print "[done]\n";
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
+		$ua->cookie_jar->set_cookie(0,"DSSigninNotif","1","/dana-na/",$dhost,$dport,1,1,60*5,0, ());
 		$res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 		$response_body=$res->decoded_content;
 		# send "setcookie" command as native client do
