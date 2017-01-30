@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -CS
 
 # Script to run ncsvc without JAVA gui and web browser
 
@@ -124,6 +124,8 @@ if ($hostchecker) {
     $ua->agent('Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0');
     # emulate javascript java check result
     $ua->cookie_jar->set_cookie(0,"DSCheckBrowser","java","/",$dhost,$dport,1,1,60*5,0, ());
+    $ua->cookie_jar->set_cookie(0,"DSSigninNotif","1","/",$dhost,$dport,1,1,60*5,0, ());
+    $ua->cookie_jar->set_cookie(0,"path","/","/",$dhost,$dport,1,1,60*5,0, ());
 }
 else {
     $ua->agent('JVPN/Linux');
@@ -141,9 +143,11 @@ if (!defined($username) || $username eq "" || $username eq "interactive") {
 }
 
 if ($cfgpass eq "interactive") {
-	print "Enter PIN+password: ";
-	$password=read_input("password");
-	print "\n";
+	do {
+	    print "Enter PIN+password: ";
+	    $password=read_input("password");
+	    print "\n";
+	} while ( $password eq "" );
 }
 elsif ($cfgpass =~ /^plaintext:(.+)/) {
 	print "Using user-defined password\n";
@@ -192,9 +196,11 @@ if ($res->is_success) {
 		elsif ($cfgpass eq "interactive" || $cfgpass =~ /^plaintext:/) {
 			print "To continue, wait for the token code to change and ".
 			"then enter the new pin and code.\n";
-			print "Enter PIN+password: ";
-			$password=read_input("password");
-			print "\n";
+			do {
+				print "Enter PIN+password: ";
+				$password=read_input("password");
+				print "\n"; 
+			} while ( $password eq "" );
 		}
 		elsif ($cfgpass =~ /^helper:(.+)/) {
 			print "Using user-defined script to get second password\n";
@@ -267,6 +273,7 @@ if ($res->is_success) {
 		}
 		print "[done]\n";
 		$ua->cookie_jar->set_cookie(0,"DSPREAUTH",$resp_lines[2],"/dana-na/",$dhost,$dport,1,1,60*5,0, ());
+		$ua->cookie_jar->set_cookie(0,"DSSigninNotif","1","/dana-na/",$dhost,$dport,1,1,60*5,0, ());
 		$res = $ua->get("https://$dhost:$dport/dana-na/auth/$durl/login.cgi?loginmode=mode_postAuth&postauth=$state_id");
 		$response_body=$res->decoded_content;
 		# send "setcookie" command as native client do
@@ -510,12 +517,13 @@ if ($mode eq "ncui"){
 	    open STAT, "/proc/net/dev" or die $!;
 	    while (<STAT>) {
 	    	    if ($_ =~ m/^\s*${vpnint}:\s*(\d+)(?:\s+\d+){7}\s*(\d+)/) {
-	    	    	    print "\r                                                              \r";
-	    	    	    printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-	    	    	    	    format_bytes($2), format_bytes($1));
+	    	    	    print "\r                        \r";
+	    	    	    printf("\x{21d1}:%s  \x{21d3}:%s  %02d:%02d:%02d", 
+	    	    	    	    format_bytes($2), format_bytes($1),
+	    	    	    	    int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	    	    }
 	    }
+	    printf("Runned for: %02d:%02d:%02d",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	    close(STAT);
 	    if(!$exists) {
 		INT_handler();
@@ -552,7 +560,7 @@ if($mode eq "ncsvc") {
 	while ( 1 ) {
 		#stat query
 		$data="\0\0\0\0\0\0\0\x69\x01\0\0\0\x01\0\0\0\0\0\0\0";
-		print "\r                                                              \r";
+		print "\r                        \r";
 		hdump($data) if $debug;
 		print $socket "$data";
 		$socket->recv($data,2048);
@@ -564,12 +572,14 @@ if($mode eq "ncsvc") {
 		my $now = time - $start_t;
 		# printing RX/TX. This packet also contains encription type,
 		# compression and transport info, but length seems to be variable
-		printf("Duration: %02d:%02d:%02d  Sent: %s\tReceived: %s", 
-			int($now / 3600), int(($now % 3600) / 60), int($now % 60),
-			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)));
+		printf("\x{21d1}:%s  \x{21d3}:%s  %02d:%02d:%02d",
+			format_bytes(unpack('x[78]N',$data)), format_bytes(unpack('x[68]N',$data)),
+			int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 		sleep(1);
 	}
-
+	
+	my $now = time - $start_t;
+	printf("Runned for: %02d:%02d:%02d",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	print "Exiting... Connect failed?\n";
 	
 	$socket->close();
@@ -620,6 +630,8 @@ sub INT_handler {
 		# xxx - we are ignoring reply
 		hdump($data) if $debug;
 	}
+	my $now = time - $start_t;
+	printf("Runned for: %02d:%02d:%02d\n",int($now / 3600), int(($now % 3600) / 60), int($now % 60));
 	print "Logging out...\n";
 	# do logout
 	$ua -> get ("https://$dhost:$dport/dana-na/auth/logout.cgi");
